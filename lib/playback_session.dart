@@ -50,6 +50,9 @@ class PlaybackSession extends ChangeNotifier {
     _speed = preferences.speed;
     _quality = preferences.quality;
     _danmakuEnabled = preferences.danmaku;
+    _danmakuFontScale = preferences.danmakuFontScale;
+    _danmakuRows = preferences.danmakuRows;
+    _danmakuColorMode = preferences.danmakuColorMode;
     _loader = PlaybackLoader(repository);
     _preloader = PlaybackPreloader(repository)..addListener(_prime);
     danmaku = DanmakuController(repository)..setEnabled(_danmakuEnabled);
@@ -163,6 +166,9 @@ class PlaybackSession extends ChangeNotifier {
   double _speed = 1;
   int _quality = 0;
   bool _danmakuEnabled = true;
+  double _danmakuFontScale = 1;
+  int _danmakuRows = 4;
+  DanmakuColorMode _danmakuColorMode = DanmakuColorMode.normal;
   double _aspectRatio = 9 / 16;
   bool _aspectKnown = false;
   double _resumePosition = 0;
@@ -194,6 +200,9 @@ class PlaybackSession extends ChangeNotifier {
   List<int> get qualities => _plan?.qualities ?? const [];
   bool get danmakuSupported => detail.drama.source == SourceSite.hongguo.id;
   bool get danmakuEnabled => _danmakuEnabled;
+  double get danmakuFontScale => _danmakuFontScale;
+  int get danmakuRows => _danmakuRows;
+  DanmakuColorMode get danmakuColorMode => _danmakuColorMode;
   bool get hasPrevious => _index > 0;
   bool get hasNext => _index + 1 < detail.episodes.length;
   String get qualityLabel {
@@ -217,6 +226,9 @@ class PlaybackSession extends ChangeNotifier {
     danmaku: _danmakuEnabled,
     autoAdvance: true,
     preload: true,
+    danmakuFontScale: _danmakuFontScale,
+    danmakuRows: _danmakuRows,
+    danmakuColorMode: _danmakuColorMode,
   );
 
   double get _rate => _boosting ? 2 : _speed;
@@ -904,6 +916,27 @@ class PlaybackSession extends ChangeNotifier {
     _danmakuEnabled = enabled;
     danmaku.setEnabled(enabled);
     _syncDanmaku();
+    _notify();
+  }
+
+  Future<void> setDanmakuFontScale(double value) async {
+    if (!danmakuSupported || value == _danmakuFontScale) return;
+    await _savePreferences(_preferences.copyWith(danmakuFontScale: value));
+    _danmakuFontScale = value;
+    _notify();
+  }
+
+  Future<void> setDanmakuRows(int value) async {
+    if (!danmakuSupported || value == _danmakuRows) return;
+    await _savePreferences(_preferences.copyWith(danmakuRows: value));
+    _danmakuRows = value;
+    _notify();
+  }
+
+  Future<void> setDanmakuColorMode(DanmakuColorMode value) async {
+    if (!danmakuSupported || value == _danmakuColorMode) return;
+    await _savePreferences(_preferences.copyWith(danmakuColorMode: value));
+    _danmakuColorMode = value;
     _notify();
   }
 
