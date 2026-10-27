@@ -11,12 +11,14 @@ import '../explore/explore_page.dart';
 import '../explore/source_actions.dart';
 import '../follow/follow_page.dart';
 import '../mine/mine_page.dart';
+import '../search/search_page.dart';
 import '../widgets/bar_button.dart';
 import '../widgets/focus_ring.dart';
 import '../widgets/source_bar.dart';
 
 enum AppTab {
   explore('发现', Icons.explore_outlined, Icons.explore),
+  search('搜索', Icons.search_outlined, Icons.search_rounded),
   follow('追剧', Icons.bookmark_border_rounded, Icons.bookmark_rounded),
   mine('我的', Icons.person_outline_rounded, Icons.person_rounded);
 
@@ -125,6 +127,10 @@ class _AppShellState extends State<AppShell> {
 
   Widget _root(AppTab tab) => switch (tab) {
     AppTab.explore => ExplorePage(key: _explore, store: widget.store),
+    AppTab.search => SearchPage(
+      store: widget.store,
+      source: SourceSite.byId(widget.store.source),
+    ),
     AppTab.follow => FollowPage(
       store: widget.store,
       entryFocus: _followEntry,
@@ -213,7 +219,7 @@ class _AppShellState extends State<AppShell> {
                         final entry = switch (_tab) {
                           AppTab.follow => _followEntry,
                           AppTab.mine => _mineEntry,
-                          AppTab.explore => null,
+                          AppTab.explore || AppTab.search => null,
                         };
                         if (event is KeyUpEvent ||
                             event.logicalKey != LogicalKeyboardKey.arrowDown ||
