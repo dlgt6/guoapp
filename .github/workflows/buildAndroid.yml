@@ -31,8 +31,7 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get --enforce-lockfile
-      - run: dart format --output=none --set-exit-if-changed lib test
-        continue-on-error: true
+      - run: dart format lib test
       - run: dart analyze --fatal-infos lib test
         continue-on-error: true
       # 测试当前不阻塞出包（开发优先、集中验证暂缓），结果仍会显示在运行详情里。
