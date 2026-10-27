@@ -1062,6 +1062,10 @@ class _TelevisionDanmakuDialog extends StatefulWidget {
 }
 
 class _TelevisionDanmakuDialogState extends State<_TelevisionDanmakuDialog> {
+  late bool _enabled = widget.session.danmakuEnabled;
+  late double _fontScale = widget.session.danmakuFontScale;
+  late int _rows = widget.session.danmakuRows;
+  late DanmakuColorMode _colorMode = widget.session.danmakuColorMode;
   final _toggle = FocusNode(debugLabel: 'tv-danmaku-toggle');
   final _close = FocusNode(debugLabel: 'tv-danmaku-close');
   final _chips = <FocusNode>[];
@@ -1069,7 +1073,7 @@ class _TelevisionDanmakuDialogState extends State<_TelevisionDanmakuDialog> {
   @override
   void initState() {
     super.initState();
-    final count = 1 + danmakuFontScales.length + danmakuRowsOptions.length +
+    final count = danmakuFontScales.length + danmakuRowsOptions.length +
         DanmakuColorMode.values.length;
     for (var i = 0; i < count; i++) {
       _chips.add(FocusNode(debugLabel: 'tv-danmaku-chip-$i'));
@@ -1089,6 +1093,11 @@ class _TelevisionDanmakuDialogState extends State<_TelevisionDanmakuDialog> {
     super.dispose();
   }
 
+  void _run(Future<void> Function() change) {
+    widget.onChange(change);
+    setState(() {});
+  }
+
   Widget _chip(
     FocusNode node,
     String label,
@@ -1105,7 +1114,6 @@ class _TelevisionDanmakuDialogState extends State<_TelevisionDanmakuDialog> {
           duration: const Duration(milliseconds: 120),
           child: InkWell(
             focusNode: node,
-            autofocus: false,
             onTap: onPressed,
             borderRadius: BorderRadius.circular(20),
             focusColor: Colors.transparent,
@@ -1128,9 +1136,7 @@ class _TelevisionDanmakuDialogState extends State<_TelevisionDanmakuDialog> {
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: selected
-                      ? colors.onPrimary
-                      : colors.onSurface,
+                  color: selected ? colors.onPrimary : colors.onSurface,
                 ),
               ),
             ),
@@ -1142,7 +1148,6 @@ class _TelevisionDanmakuDialogState extends State<_TelevisionDanmakuDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final session = widget.session;
     final colors = Theme.of(context).colorScheme;
     final label = TextStyle(
       fontSize: 16,
@@ -1150,145 +1155,152 @@ class _TelevisionDanmakuDialogState extends State<_TelevisionDanmakuDialog> {
       color: colors.onSurfaceVariant,
     );
     var chipIndex = 0;
-    return ListenableBuilder(
-      listenable: session,
-      builder: (context, _) => AlertDialog(
-        title: const Text('弹幕设置'),
-        content: SizedBox(
-          width: 520,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListenableBuilder(
-                  listenable: _toggle,
-                  builder: (context, _) {
-                    final focused = _toggle.hasPrimaryFocus;
-                    return InkWell(
-                      focusNode: _toggle,
-                      onTap: () => widget.onChange(session.toggleDanmaku),
-                      borderRadius: BorderRadius.circular(12),
-                      focusColor: Colors.transparent,
-                      hoverColor: Colors.transparent,
-                      highlightColor: Colors.transparent,
-                      splashColor: Colors.transparent,
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 120),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
+    return AlertDialog(
+      title: const Text('弹幕设置'),
+      content: SizedBox(
+        width: 520,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListenableBuilder(
+                listenable: _toggle,
+                builder: (context, _) {
+                  final focused = _toggle.hasPrimaryFocus;
+                  return InkWell(
+                    focusNode: _toggle,
+                    onTap: () {
+                      _enabled = !_enabled;
+                      _run(widget.session.toggleDanmaku);
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    focusColor: Colors.transparent,
+                    hoverColor: Colors.transparent,
+                    highlightColor: Colors.transparent,
+                    splashColor: Colors.transparent,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 120),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      decoration: ShapeDecoration(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        decoration: ShapeDecoration(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          color: focused
-                              ? colors.primary.withValues(alpha: .2)
-                              : Colors.transparent,
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                '弹幕',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                        color: focused
+                            ? colors.primary.withValues(alpha: .2)
+                            : Colors.transparent,
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: const Text(
+                              '弹幕',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
-                            Switch(
-                              value: session.danmakuEnabled,
-                              onChanged: (_) =>
-                                  widget.onChange(session.toggleDanmaku),
-                            ),
-                          ],
-                        ),
+                          ),
+                          Switch(
+                            value: _enabled,
+                            onChanged: (_) {
+                              _enabled = !_enabled;
+                              _run(widget.session.toggleDanmaku);
+                            },
+                          ),
+                        ],
                       ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 16),
-                Text('字体大小', style: label),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final scale in danmakuFontScales)
-                      _chip(
-                        _chips[chipIndex++],
-                        '${scale}x',
-                        scale == session.danmakuFontScale,
-                        () => widget.onChange(
-                          () => session.setDanmakuFontScale(scale),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Text('行数', style: label),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final rows in danmakuRowsOptions)
-                      _chip(
-                        _chips[chipIndex++],
-                        '$rows 行',
-                        rows == session.danmakuRows,
-                        () => widget.onChange(
-                          () => session.setDanmakuRows(rows),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Text('颜色', style: label),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final mode in DanmakuColorMode.values)
-                      _chip(
-                        _chips[chipIndex++],
-                        switch (mode) {
-                          DanmakuColorMode.normal => '默认',
-                          DanmakuColorMode.colorful => '彩色',
-                          DanmakuColorMode.gradient => '渐变',
-                        },
-                        mode == session.danmakuColorMode,
-                        () => widget.onChange(
-                          () => session.setDanmakuColorMode(mode),
-                        ),
-                      ),
-                  ],
-                ),
-              ],
-            ),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+              Text('字体大小', style: label),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final scale in danmakuFontScales)
+                    _chip(
+                      _chips[chipIndex++],
+                      '${scale}x',
+                      scale == _fontScale,
+                      () {
+                        _fontScale = scale;
+                        _run(
+                          () => widget.session.setDanmakuFontScale(scale),
+                        );
+                      },
+                    ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Text('行数', style: label),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final rows in danmakuRowsOptions)
+                    _chip(
+                      _chips[chipIndex++],
+                      '$rows 行',
+                      rows == _rows,
+                      () {
+                        _rows = rows;
+                        _run(() => widget.session.setDanmakuRows(rows));
+                      },
+                    ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Text('颜色', style: label),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final mode in DanmakuColorMode.values)
+                    _chip(
+                      _chips[chipIndex++],
+                      switch (mode) {
+                        DanmakuColorMode.normal => '默认',
+                        DanmakuColorMode.colorful => '彩色',
+                        DanmakuColorMode.gradient => '渐变',
+                      },
+                      mode == _colorMode,
+                      () {
+                        _colorMode = mode;
+                        _run(() => widget.session.setDanmakuColorMode(mode));
+                      },
+                    ),
+                ],
+              ),
+            ],
           ),
         ),
-        actions: [
-          ListenableBuilder(
-            listenable: _close,
-            builder: (context, _) {
-              final focused = _close.hasPrimaryFocus;
-              return AnimatedScale(
-                scale: focused ? 1.08 : 1,
-                duration: const Duration(milliseconds: 120),
-                child: TextButton(
-                  focusNode: _close,
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('关闭'),
-                ),
-              );
-            },
-          ),
-        ],
       ),
+      actions: [
+        ListenableBuilder(
+          listenable: _close,
+          builder: (context, _) {
+            final focused = _close.hasPrimaryFocus;
+            return AnimatedScale(
+              scale: focused ? 1.08 : 1,
+              duration: const Duration(milliseconds: 120),
+              child: TextButton(
+                focusNode: _close,
+                onPressed: () => Navigator.pop(context),
+                child: const Text('关闭'),
+              ),
+            );
+          },
+        ),
+      ],
     );
   }
 }
