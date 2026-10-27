@@ -10,6 +10,7 @@ import '../../playback_preferences.dart';
 import '../../playback_session.dart';
 import 'danmaku_overlay.dart';
 import 'playback_handle.dart';
+import 'playback_hud.dart';
 
 String formatClock(Duration value) {
   final seconds = value.inSeconds;
@@ -309,6 +310,14 @@ class _PlayerSurfaceState extends State<PlayerSurface> {
             DanmakuOverlay(
               controller: _session.danmaku,
               aspectRatio: _session.aspectRatio,
+              fontScale: _session.danmakuFontScale,
+              maxRows: _session.danmakuRows,
+              colorMode: _session.danmakuColorMode,
+            ),
+            PlaybackHud(
+              title:
+                  '${_session.detail.drama.title} · 第 ${_session.episode.number} 集',
+              player: _session.player,
             ),
             if (widget.touch)
               LayoutBuilder(

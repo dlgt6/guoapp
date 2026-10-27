@@ -16,6 +16,7 @@ import '../theme/app_theme.dart';
 import '../widgets/follow_button.dart';
 import 'danmaku_overlay.dart';
 import 'episode_grid.dart';
+import 'playback_hud.dart';
 import 'playback_sheets.dart';
 import 'playback_handle.dart';
 import 'player_surface.dart';
@@ -327,6 +328,14 @@ class _PortraitPlayerPageState extends State<PortraitPlayerPage>
               key: const ValueKey('danmaku'),
               controller: session.danmaku,
               aspectRatio: session.aspectRatio,
+              fontScale: session.danmakuFontScale,
+              maxRows: session.danmakuRows,
+              colorMode: session.danmakuColorMode,
+            ),
+            PlaybackHud(
+              title:
+                  '${session.detail.drama.title} · 第 ${session.episode.number} 集',
+              player: session.player,
             ),
             LayoutBuilder(
               key: const ValueKey('gestures'),

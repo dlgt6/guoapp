@@ -11,6 +11,7 @@ import '../app_scope.dart';
 import '../theme/app_theme.dart';
 import 'danmaku_overlay.dart';
 import 'playback_handle.dart';
+import 'playback_hud.dart';
 import 'player_surface.dart';
 
 enum _Menu { speed, quality }
@@ -224,6 +225,18 @@ class _TelevisionPlayerPageState extends State<TelevisionPlayerPage>
     }
   }
 
+  void _openDanmakuSettings() {
+    unawaited(
+      showDialog<void>(
+        context: context,
+        builder: (context) => _TelevisionDanmakuDialog(
+          session: _session,
+          onChange: (change) => unawaited(_change(change)),
+        ),
+      ),
+    );
+  }
+
   List<FocusNode> get _row => [
     _previous,
     _play,
@@ -430,6 +443,15 @@ class _TelevisionPlayerPageState extends State<TelevisionPlayerPage>
                     DanmakuOverlay(
                       controller: _session.danmaku,
                       aspectRatio: _session.aspectRatio,
+                      fontScale: _session.danmakuFontScale,
+                      maxRows: _session.danmakuRows,
+                      colorMode: _session.danmakuColorMode,
+                    ),
+                    PlaybackHud(
+                      title:
+                          '${_session.detail.drama.title} · 第 ${_session.episode.number} 集',
+                      player: _session.player,
+                      television: true,
                     ),
                     if (_session.loading) PlaybackLoading(session: _session),
                     if (_session.ready && _session.stalled)
@@ -519,8 +541,8 @@ class _TelevisionPlayerPageState extends State<TelevisionPlayerPage>
                 _pill(
                   _danmaku,
                   _session.danmakuEnabled ? '弹幕 开' : '弹幕 关',
-                  _session.danmakuEnabled ? '关闭弹幕' : '打开弹幕',
-                  () => unawaited(_change(_session.toggleDanmaku)),
+                  '弹幕设置',
+                  _openDanmakuSettings,
                   color: _session.danmakuEnabled ? colors.primary : null,
                 ),
               CompositedTransformTarget(
@@ -872,11 +894,114 @@ class _TelevisionPlayerPageState extends State<TelevisionPlayerPage>
             fontSize: 17,
             fontWeight: FontWeight.w700,
             fontFeatures: const [FontFeature.tabularFigures()],
+        ),
+      ),
+    ),
+  );
+}
+
+class _TelevisionDanmakuDialog extends StatelessWidget {
+  const _TelevisionDanmakuDialog({
+    required this.session,
+    required this.onChange,
+  });
+
+  final PlaybackSession session;
+  final void Function(Future<void> Function() change) onChange;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final label = TextStyle(
+      fontSize: 16,
+      fontWeight: FontWeight.w600,
+      color: colors.onSurfaceVariant,
+    );
+    return ListenableBuilder(
+      listenable: session,
+      builder: (context, _) => AlertDialog(
+        title: const Text('弹幕设置'),
+        content: SizedBox(
+          width: 480,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('弹幕'),
+                  value: session.danmakuEnabled,
+                  onChanged: (_) => onChange(session.toggleDanmaku),
+                ),
+                const SizedBox(height: 12),
+                Text('字体大小', style: label),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final scale in danmakuFontScales)
+                      ChoiceChip(
+                        label: Text('${scale}x'),
+                        selected: scale == session.danmakuFontScale,
+                        onSelected: (_) => onChange(
+                          () => session.setDanmakuFontScale(scale),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Text('行数', style: label),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final rows in danmakuRowsOptions)
+                      ChoiceChip(
+                        label: Text('$rows 行'),
+                        selected: rows == session.danmakuRows,
+                        onSelected: (_) =>
+                            onChange(() => session.setDanmakuRows(rows)),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Text('颜色', style: label),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final mode in DanmakuColorMode.values)
+                      ChoiceChip(
+                        label: Text(switch (mode) {
+                          DanmakuColorMode.normal => '默认',
+                          DanmakuColorMode.colorful => '彩色',
+                          DanmakuColorMode.gradient => '渐变',
+                        }),
+                        selected: mode == session.danmakuColorMode,
+                        onSelected: (_) => onChange(
+                          () => session.setDanmakuColorMode(mode),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('关闭'),
+          ),
+        ],
       ),
     );
   }
+}
 
   Widget _menuBody(_Menu menu) {
     final colors = Theme.of(context).colorScheme;

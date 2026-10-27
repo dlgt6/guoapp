@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../danmaku_controller.dart';
 import '../../danmaku_models.dart';
+import '../../playback_preferences.dart';
 
 class DanmakuFlight {
   const DanmakuFlight(this.item, this.text, this.lane, this.width);
@@ -20,7 +21,7 @@ List<DanmakuFlight> planDanmaku(
   required double Function(String) measure,
 }) {
   if (!width.isFinite || width <= 0 || rows < 1) return const [];
-  final lanes = List<DanmakuFlight?>.filled(rows.clamp(1, 4), null);
+  final lanes = List<DanmakuFlight?>.filled(rows, null);
   final sorted = items.toList()..sort((a, b) => a.timeMs.compareTo(b.timeMs));
   final seen = <String>{};
   final flights = <DanmakuFlight>[];
@@ -64,14 +65,45 @@ List<DanmakuFlight> planDanmaku(
   return flights;
 }
 
+const _danmakuPalette = [
+  Color(0xFFFFFFFF),
+  Color(0xFFFF5252),
+  Color(0xFFFFEB3B),
+  Color(0xFF69F0AE),
+  Color(0xFF40C4FF),
+  Color(0xFFE040FB),
+  Color(0xFFFFAB40),
+];
+
+Color _danmakuColor(DanmakuColorMode mode, String id) {
+  switch (mode) {
+    case DanmakuColorMode.normal:
+      return Colors.white;
+    case DanmakuColorMode.colorful:
+      var hash = 0;
+      for (final char in id.codeUnits) {
+        hash = (hash * 31 + char) & 0x7FFFFFFF;
+      }
+      return _danmakuPalette[hash % _danmakuPalette.length];
+    case DanmakuColorMode.gradient:
+      return Colors.white;
+  }
+}
+
 class DanmakuOverlay extends StatefulWidget {
   const DanmakuOverlay({
     super.key,
     required this.controller,
     required this.aspectRatio,
+    this.fontScale = 1,
+    this.maxRows = 4,
+    this.colorMode = DanmakuColorMode.normal,
   });
   final DanmakuController controller;
   final double aspectRatio;
+  final double fontScale;
+  final int maxRows;
+  final DanmakuColorMode colorMode;
 
   @override
   State<DanmakuOverlay> createState() => _DanmakuOverlayState();
@@ -103,11 +135,13 @@ class _DanmakuOverlayState extends State<DanmakuOverlay> {
             constraints.maxHeight,
             constraints.maxWidth / aspect,
           );
-          final fontSize = width < 600 ? 16.0 : 20.0;
+          final fontSize =
+              (width < 600 ? 16.0 : 20.0) * widget.fontScale;
           final scaler = MediaQuery.textScalerOf(context);
           final rowHeight = scaler.scale(fontSize) * 1.5;
-          final rows = ((height * .55 - 8) / rowHeight).floor().clamp(0, 4);
-          final style = TextStyle(
+          final rows =
+              ((height * .55 - 8) / rowHeight).floor().clamp(0, widget.maxRows);
+          final baseStyle = TextStyle(
             fontSize: fontSize,
             fontWeight: FontWeight.w600,
             color: Colors.white,
@@ -144,7 +178,7 @@ class _DanmakuOverlayState extends State<DanmakuOverlay> {
                         rows: rows,
                         measure: (text) {
                           final painter = TextPainter(
-                            text: TextSpan(text: text, style: style),
+                            text: TextSpan(text: text, style: baseStyle),
                             textDirection: TextDirection.ltr,
                             textScaler: scaler,
                             maxLines: 1,
@@ -175,8 +209,13 @@ class _DanmakuOverlayState extends State<DanmakuOverlay> {
                                 moving: controller.moving,
                                 rate: controller.rate,
                                 revision: controller.motionRevision,
-                                style: style,
+                                style: baseStyle,
                                 scaler: scaler,
+                                color: _danmakuColor(
+                                  widget.colorMode,
+                                  flight.item.id,
+                                ),
+                                colorMode: widget.colorMode,
                               ),
                             ),
                       ],
@@ -202,6 +241,8 @@ class _DanmakuMotion extends StatefulWidget {
     required this.revision,
     required this.style,
     required this.scaler,
+    required this.color,
+    required this.colorMode,
   });
   final DanmakuFlight flight;
   final double width;
@@ -211,6 +252,8 @@ class _DanmakuMotion extends StatefulWidget {
   final int revision;
   final TextStyle style;
   final TextScaler scaler;
+  final Color color;
+  final DanmakuColorMode colorMode;
 
   @override
   State<_DanmakuMotion> createState() => _DanmakuMotionState();
@@ -267,25 +310,44 @@ class _DanmakuMotionState extends State<_DanmakuMotion>
   }
 
   @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-    animation: _motion,
-    child: RepaintBoundary(
-      child: Text(
-        widget.flight.text,
-        style: widget.style,
-        textScaler: widget.scaler,
-        textDirection: TextDirection.ltr,
-        maxLines: 1,
-        softWrap: false,
+  Widget build(BuildContext context) {
+    final style = widget.style.copyWith(color: widget.color);
+    final text = Text(
+      widget.flight.text,
+      style: style,
+      textScaler: widget.scaler,
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+      softWrap: false,
+    );
+    return AnimatedBuilder(
+      animation: _motion,
+      child: RepaintBoundary(
+        child: widget.colorMode == DanmakuColorMode.gradient
+            ? ShaderMask(
+                shaderCallback: (bounds) {
+                  final progress = _motion.value;
+                  return LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [
+                      widget.color,
+                      Color.lerp(widget.color, Colors.cyanAccent, progress)!,
+                    ],
+                  ).createShader(bounds);
+                },
+                child: text,
+              )
+            : text,
       ),
-    ),
-    builder: (context, child) => Transform.translate(
-      key: ValueKey('danmaku-motion-${widget.flight.item.id}'),
-      offset: Offset(
-        widget.width - (widget.width + widget.flight.width) * _motion.value,
-        0,
+      builder: (context, child) => Transform.translate(
+        key: ValueKey('danmaku-motion-${widget.flight.item.id}'),
+        offset: Offset(
+          widget.width - (widget.width + widget.flight.width) * _motion.value,
+          0,
+        ),
+        child: child,
       ),
-      child: child,
-    ),
-  );
+    );
+  }
 }

@@ -148,6 +148,60 @@ class PlaybackSettings extends StatelessWidget {
                     value: session.danmakuEnabled,
                     onChanged: (_) => _change(session.toggleDanmaku),
                   ),
+                  const SizedBox(height: 10),
+                  Text('弹幕字体大小', style: label),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final scale in danmakuFontScales)
+                        _Choice(
+                          label: '${scale}x',
+                          selected: scale == session.danmakuFontScale,
+                          onSelected: () => _change(
+                            () => session.setDanmakuFontScale(scale),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  Text('弹幕行数', style: label),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final rows in danmakuRowsOptions)
+                        _Choice(
+                          label: '$rows 行',
+                          selected: rows == session.danmakuRows,
+                          onSelected: () =>
+                              _change(() => session.setDanmakuRows(rows)),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  Text('弹幕颜色', style: label),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final mode in DanmakuColorMode.values)
+                        _Choice(
+                          label: switch (mode) {
+                            DanmakuColorMode.normal => '默认',
+                            DanmakuColorMode.colorful => '彩色',
+                            DanmakuColorMode.gradient => '渐变',
+                          },
+                          selected: mode == session.danmakuColorMode,
+                          onSelected: () => _change(
+                            () => session.setDanmakuColorMode(mode),
+                          ),
+                        ),
+                    ],
+                  ),
                 ],
               ],
             ),

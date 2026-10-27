@@ -21,6 +21,7 @@ import '../widgets/status_view.dart';
 import '../widgets/follow_button.dart';
 import 'episode_grid.dart';
 import 'playback_handle.dart';
+import 'playback_hud.dart';
 import 'playback_sheets.dart';
 import 'player_surface.dart';
 
@@ -425,6 +426,14 @@ class _LandscapePlayerPageState extends State<LandscapePlayerPage>
         DanmakuOverlay(
           controller: session.danmaku,
           aspectRatio: session.aspectRatio,
+          fontScale: session.danmakuFontScale,
+          maxRows: session.danmakuRows,
+          colorMode: session.danmakuColorMode,
+        ),
+        PlaybackHud(
+          title:
+              '${session.detail.drama.title} · 第 ${session.episode.number} 集',
+          player: session.player,
         ),
         LayoutBuilder(
           builder: (context, constraints) => GestureDetector(
