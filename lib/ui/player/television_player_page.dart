@@ -233,7 +233,9 @@ class _TelevisionPlayerPageState extends State<TelevisionPlayerPage>
           session: _session,
           onChange: (change) => unawaited(_change(change)),
         ),
-      ),
+      ).then((_) {
+        if (mounted) _danmaku.requestFocus();
+      }),
     );
   }
 
@@ -1045,7 +1047,7 @@ class _Shade extends StatelessWidget {
     ),
   );
 }
-class _TelevisionDanmakuDialog extends StatelessWidget {
+class _TelevisionDanmakuDialog extends StatefulWidget {
   const _TelevisionDanmakuDialog({
     required this.session,
     required this.onChange,
@@ -1055,31 +1057,159 @@ class _TelevisionDanmakuDialog extends StatelessWidget {
   final void Function(Future<void> Function() change) onChange;
 
   @override
+  State<_TelevisionDanmakuDialog> createState() =>
+      _TelevisionDanmakuDialogState();
+}
+
+class _TelevisionDanmakuDialogState extends State<_TelevisionDanmakuDialog> {
+  final _toggle = FocusNode(debugLabel: 'tv-danmaku-toggle');
+  final _close = FocusNode(debugLabel: 'tv-danmaku-close');
+  final _chips = <FocusNode>[];
+
+  @override
+  void initState() {
+    super.initState();
+    final count = 1 + danmakuFontScales.length + danmakuRowsOptions.length +
+        DanmakuColorMode.values.length;
+    for (var i = 0; i < count; i++) {
+      _chips.add(FocusNode(debugLabel: 'tv-danmaku-chip-$i'));
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _toggle.requestFocus();
+    });
+  }
+
+  @override
+  void dispose() {
+    _toggle.dispose();
+    _close.dispose();
+    for (final node in _chips) {
+      node.dispose();
+    }
+    super.dispose();
+  }
+
+  Widget _chip(
+    FocusNode node,
+    String label,
+    bool selected,
+    VoidCallback onPressed,
+  ) {
+    return ListenableBuilder(
+      listenable: node,
+      builder: (context, _) {
+        final focused = node.hasPrimaryFocus;
+        final colors = Theme.of(context).colorScheme;
+        return AnimatedScale(
+          scale: focused ? 1.08 : 1,
+          duration: const Duration(milliseconds: 120),
+          child: InkWell(
+            focusNode: node,
+            autofocus: false,
+            onTap: onPressed,
+            borderRadius: BorderRadius.circular(20),
+            focusColor: Colors.transparent,
+            hoverColor: Colors.transparent,
+            highlightColor: Colors.transparent,
+            splashColor: Colors.transparent,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 120),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: ShapeDecoration(
+                shape: const StadiumBorder(),
+                color: selected
+                    ? colors.primary
+                    : focused
+                        ? colors.primary.withValues(alpha: .3)
+                        : colors.surfaceContainerHighest,
+              ),
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: selected
+                      ? colors.onPrimary
+                      : colors.onSurface,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final session = widget.session;
     final colors = Theme.of(context).colorScheme;
     final label = TextStyle(
       fontSize: 16,
       fontWeight: FontWeight.w600,
       color: colors.onSurfaceVariant,
     );
+    var chipIndex = 0;
     return ListenableBuilder(
       listenable: session,
       builder: (context, _) => AlertDialog(
         title: const Text('弹幕设置'),
         content: SizedBox(
-          width: 480,
+          width: 520,
           child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('弹幕'),
-                  value: session.danmakuEnabled,
-                  onChanged: (_) => onChange(session.toggleDanmaku),
+                ListenableBuilder(
+                  listenable: _toggle,
+                  builder: (context, _) {
+                    final focused = _toggle.hasPrimaryFocus;
+                    return InkWell(
+                      focusNode: _toggle,
+                      onTap: () => widget.onChange(session.toggleDanmaku),
+                      borderRadius: BorderRadius.circular(12),
+                      focusColor: Colors.transparent,
+                      hoverColor: Colors.transparent,
+                      highlightColor: Colors.transparent,
+                      splashColor: Colors.transparent,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 120),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        decoration: ShapeDecoration(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          color: focused
+                              ? colors.primary.withValues(alpha: .2)
+                              : Colors.transparent,
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                '弹幕',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            Switch(
+                              value: session.danmakuEnabled,
+                              onChanged: (_) =>
+                                  widget.onChange(session.toggleDanmaku),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 Text('字体大小', style: label),
                 const SizedBox(height: 8),
                 Wrap(
@@ -1087,10 +1217,11 @@ class _TelevisionDanmakuDialog extends StatelessWidget {
                   runSpacing: 8,
                   children: [
                     for (final scale in danmakuFontScales)
-                      ChoiceChip(
-                        label: Text('${scale}x'),
-                        selected: scale == session.danmakuFontScale,
-                        onSelected: (_) => onChange(
+                      _chip(
+                        _chips[chipIndex++],
+                        '${scale}x',
+                        scale == session.danmakuFontScale,
+                        () => widget.onChange(
                           () => session.setDanmakuFontScale(scale),
                         ),
                       ),
@@ -1104,11 +1235,13 @@ class _TelevisionDanmakuDialog extends StatelessWidget {
                   runSpacing: 8,
                   children: [
                     for (final rows in danmakuRowsOptions)
-                      ChoiceChip(
-                        label: Text('$rows 行'),
-                        selected: rows == session.danmakuRows,
-                        onSelected: (_) =>
-                            onChange(() => session.setDanmakuRows(rows)),
+                      _chip(
+                        _chips[chipIndex++],
+                        '$rows 行',
+                        rows == session.danmakuRows,
+                        () => widget.onChange(
+                          () => session.setDanmakuRows(rows),
+                        ),
                       ),
                   ],
                 ),
@@ -1120,14 +1253,15 @@ class _TelevisionDanmakuDialog extends StatelessWidget {
                   runSpacing: 8,
                   children: [
                     for (final mode in DanmakuColorMode.values)
-                      ChoiceChip(
-                        label: Text(switch (mode) {
+                      _chip(
+                        _chips[chipIndex++],
+                        switch (mode) {
                           DanmakuColorMode.normal => '默认',
                           DanmakuColorMode.colorful => '彩色',
                           DanmakuColorMode.gradient => '渐变',
-                        }),
-                        selected: mode == session.danmakuColorMode,
-                        onSelected: (_) => onChange(
+                        },
+                        mode == session.danmakuColorMode,
+                        () => widget.onChange(
                           () => session.setDanmakuColorMode(mode),
                         ),
                       ),
@@ -1138,9 +1272,20 @@ class _TelevisionDanmakuDialog extends StatelessWidget {
           ),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('关闭'),
+          ListenableBuilder(
+            listenable: _close,
+            builder: (context, _) {
+              final focused = _close.hasPrimaryFocus;
+              return AnimatedScale(
+                scale: focused ? 1.08 : 1,
+                duration: const Duration(milliseconds: 120),
+                child: TextButton(
+                  focusNode: _close,
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('关闭'),
+                ),
+              );
+            },
           ),
         ],
       ),
