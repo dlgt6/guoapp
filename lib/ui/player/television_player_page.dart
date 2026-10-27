@@ -1155,11 +1155,23 @@ class _TelevisionDanmakuDialogState extends State<_TelevisionDanmakuDialog> {
       color: colors.onSurfaceVariant,
     );
     var chipIndex = 0;
-    return AlertDialog(
-      title: const Text('弹幕设置'),
-      content: SizedBox(
-        width: 520,
-        child: SingleChildScrollView(
+    return FocusTraversalGroup(
+      child: Focus(
+        autofocus: true,
+        onKeyEvent: (node, event) {
+          if (event is! KeyDownEvent) return KeyEventResult.ignored;
+          final key = event.logicalKey;
+          if (key == LogicalKeyboardKey.escape) {
+            Navigator.of(context).pop();
+            return KeyEventResult.handled;
+          }
+          return KeyEventResult.ignored;
+        },
+        child: AlertDialog(
+          title: const Text('弹幕设置'),
+          content: SizedBox(
+            width: 520,
+            child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -1301,6 +1313,8 @@ class _TelevisionDanmakuDialogState extends State<_TelevisionDanmakuDialog> {
           },
         ),
       ],
+        ),
+      ),
     );
   }
 }
