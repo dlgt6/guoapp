@@ -58,6 +58,7 @@ class _TelevisionPlayerPageState extends State<TelevisionPlayerPage>
   Timer? _seekDisplay;
   bool _visible = true;
   bool _failed = false;
+  bool _danmakuSettingsOpen = false;
   _Menu? _menu;
   Duration? _seekTarget;
   Duration _seekFrom = Duration.zero;
@@ -226,6 +227,7 @@ class _TelevisionPlayerPageState extends State<TelevisionPlayerPage>
   }
 
   void _openDanmakuSettings() {
+    setState(() => _danmakuSettingsOpen = true);
     unawaited(
       showDialog<void>(
         context: context,
@@ -234,7 +236,10 @@ class _TelevisionPlayerPageState extends State<TelevisionPlayerPage>
           onChange: (change) => unawaited(_change(change)),
         ),
       ).then((_) {
-        if (mounted) _danmaku.requestFocus();
+        if (mounted) {
+          setState(() => _danmakuSettingsOpen = false);
+          _danmaku.requestFocus();
+        }
       }),
     );
   }
@@ -318,6 +323,7 @@ class _TelevisionPlayerPageState extends State<TelevisionPlayerPage>
   }
 
   KeyEventResult _key(FocusNode _, KeyEvent event) {
+    if (_danmakuSettingsOpen) return KeyEventResult.handled;
     if (event is KeyUpEvent || _session.error != null) {
       return KeyEventResult.ignored;
     }
@@ -429,6 +435,7 @@ class _TelevisionPlayerPageState extends State<TelevisionPlayerPage>
             child: Focus(
               focusNode: _surface,
               autofocus: true,
+              canRequestFocus: !_danmakuSettingsOpen,
               onKeyEvent: _key,
               child: Scaffold(
                 backgroundColor: Colors.black,
@@ -765,7 +772,11 @@ class _TelevisionPlayerPageState extends State<TelevisionPlayerPage>
               ? Semantics(
                   label: '播放进度',
                   value: formatClock(position),
-                  child: Focus(focusNode: _bar, child: track),
+                  child: Focus(
+                    focusNode: _bar,
+                    canRequestFocus: !_danmakuSettingsOpen,
+                    child: track,
+                  ),
                 )
               : track,
         ),
@@ -789,6 +800,7 @@ class _TelevisionPlayerPageState extends State<TelevisionPlayerPage>
     required Widget Function(bool focused, bool enabled) builder,
   }) {
     final enabled = _enabled(node);
+    final focusable = enabled && !_danmakuSettingsOpen;
     return Semantics(
       label: label,
       button: true,
@@ -797,14 +809,14 @@ class _TelevisionPlayerPageState extends State<TelevisionPlayerPage>
       child: ListenableBuilder(
         listenable: node,
         builder: (context, _) {
-          final focused = enabled && node.hasPrimaryFocus;
+          final focused = focusable && node.hasPrimaryFocus;
           return AnimatedScale(
             scale: focused ? 1.08 : 1,
             duration: const Duration(milliseconds: 120),
             child: InkWell(
               focusNode: node,
-              canRequestFocus: enabled,
-              onTap: enabled ? onPressed : null,
+              canRequestFocus: focusable,
+              onTap: focusable ? onPressed : null,
               customBorder: shape,
               focusColor: Colors.transparent,
               hoverColor: Colors.transparent,
