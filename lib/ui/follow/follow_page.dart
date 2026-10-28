@@ -169,7 +169,7 @@ class _FollowPageState extends State<FollowPage> {
     hint: '搜索追剧',
     controller: _query,
     focusNode: focusNode,
-    onSubmitted: (_) {},
+    onSubmitted: (_) => FocusManager.instance.primaryFocus?.unfocus(),
   );
 
   Widget _textButton(
