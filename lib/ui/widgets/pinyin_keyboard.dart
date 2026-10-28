@@ -89,7 +89,7 @@ class PinyinKeyboard extends StatelessWidget {
                 context,
                 '搜索',
                 Icons.search_rounded,
-                onSearch,
+                hasInput ? onSearch : null,
               ),
             ),
           ],
