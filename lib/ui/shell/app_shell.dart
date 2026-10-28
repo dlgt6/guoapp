@@ -55,6 +55,7 @@ class _AppShellState extends State<AppShell> {
   final _header = FocusNode();
   final _televisionTabs = GlobalKey();
   final _explore = GlobalKey<ExplorePageState>();
+  final _searchPage = GlobalKey<SearchPageState>();
   var _tab = AppTab.explore;
   var _headerFocused = false;
   FocusNode? _lastFocus;
@@ -102,12 +103,14 @@ class _AppShellState extends State<AppShell> {
     super.dispose();
   }
 
-  void _select(AppTab tab) => setState(() {
-    _tab = tab;
-    if (tab == AppTab.search && widget.store.pinyinSearch) {
-      _navigators[AppTab.search.index] = GlobalKey<NavigatorState>();
+  void _select(AppTab tab) {
+    if (tab == AppTab.search &&
+        tab != _tab &&
+        widget.store.pinyinSearch) {
+      _searchPage.currentState?.reset();
     }
-  });
+    setState(() => _tab = tab);
+  }
 
   void _followFocus() {
     final previous = _lastFocus;
@@ -133,6 +136,7 @@ class _AppShellState extends State<AppShell> {
   Widget _root(AppTab tab) => switch (tab) {
     AppTab.explore => ExplorePage(key: _explore, store: widget.store),
     AppTab.search => SearchPage(
+      key: _searchPage,
       store: widget.store,
       source: SourceSite.byId(widget.store.source),
     ),
