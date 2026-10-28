@@ -166,7 +166,7 @@ class _HistoryPageState extends State<HistoryPage> {
     controller: _query,
     focusNode: focusNode,
     height: height,
-    onSubmitted: (_) {},
+    onSubmitted: (_) => FocusManager.instance.primaryFocus?.unfocus(),
   );
 
   Widget _textButton(
