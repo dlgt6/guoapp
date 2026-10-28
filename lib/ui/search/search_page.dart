@@ -237,7 +237,7 @@ class SearchPageState extends State<SearchPage> {
             child: Padding(
               padding: const EdgeInsets.fromLTRB(televisionInset, 0, televisionInset, 27),
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 spacing: 16,
                 children: [
                   SizedBox(
