@@ -42,6 +42,8 @@ class _SearchPageState extends State<SearchPage> {
   Timer? _debounce;
   int _suggestion = 0;
   bool _ready = false;
+  bool _searching = false;
+  final _suggestionCache = <String, List<String>>{};
 
   @override
   void didChangeDependencies() {
@@ -94,16 +96,38 @@ class _SearchPageState extends State<SearchPage> {
     final query = text.trim();
     final generation = ++_suggestion;
     if (!widget.source.searchSuggestions || query.isEmpty) {
-      setState(() => _suggestions = const []);
+      setState(() {
+        _suggestions = const [];
+        _searching = false;
+      });
       return;
     }
+    if (_suggestionCache.containsKey(query)) {
+      setState(() {
+        _suggestions = _suggestionCache[query]!;
+        _searching = false;
+      });
+      return;
+    }
+    setState(() => _searching = true);
     _debounce = Timer(const Duration(milliseconds: 250), () async {
       try {
         final items = await _repository.suggestions(query);
         if (mounted && generation == _suggestion) {
-          setState(() => _suggestions = items);
+          if (_suggestionCache.length >= 32) {
+            _suggestionCache.remove(_suggestionCache.keys.first);
+          }
+          _suggestionCache[query] = items;
+          setState(() {
+            _suggestions = items;
+            _searching = false;
+          });
         }
-      } catch (_) {}
+      } catch (_) {
+        if (mounted && generation == _suggestion) {
+          setState(() => _searching = false);
+        }
+      }
     });
   }
 
@@ -235,12 +259,27 @@ class _SearchPageState extends State<SearchPage> {
 
   Widget _body(BuildContext context) {
     final television = AppScope.of(context).television;
-    if (_suggestions.isNotEmpty && _controller.text.trim() != _submitted) {
+    final query = _controller.text.trim();
+    if (query != _submitted && _searching && _suggestions.isEmpty) {
+      return const StatusView.loading(title: '正在匹配...');
+    }
+    if (_suggestions.isNotEmpty && query != _submitted) {
+      final theme = Theme.of(context);
       return ListView(
         padding: television
             ? const EdgeInsets.fromLTRB(televisionInset, 8, televisionInset, 27)
             : const EdgeInsets.symmetric(vertical: 8),
         children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: Text(
+              '匹配结果 (${_suggestions.length})',
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+          ),
           for (final item in _suggestions)
             TileFocus(
               builder: (focusNode) => ListTile(
