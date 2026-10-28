@@ -17,54 +17,52 @@ class PinyinKeyboard extends StatelessWidget {
   final VoidCallback onSearch;
   final bool hasInput;
 
-  static const _keys = [
-    'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
-    'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
-    '1', '2', '3', '4', '5', '6', '7', '8', '9', '0',
+  static const _keyRows = [
+    ['A', 'B', 'C', 'D', 'E', 'F'],
+    ['G', 'H', 'I', 'J', 'K', 'L'],
+    ['M', 'N', 'O', 'P', 'Q', 'R'],
+    ['S', 'T', 'U', 'V', 'W', 'X'],
+    ['Y', 'Z', '1', '2', '3', '4'],
+    ['5', '6', '7', '8', '9', '0'],
   ];
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return Column(
+      spacing: 10,
       children: [
-        Expanded(
-          child: GridView.builder(
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 6,
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 8,
-              childAspectRatio: 1.0,
-            ),
-            itemCount: _keys.length,
-            itemBuilder: (context, index) {
-              final char = _keys[index];
-              return FocusRing(
-                radius: 10,
-                child: Material(
-                  color: colors.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(10),
-                  clipBehavior: Clip.antiAlias,
-                  child: InkWell(
-
-                    onTap: () => onKeyPress(char),
-                    child: Center(
-                      child: Text(
-                        char,
-                        style: const TextStyle(
-                          fontSize: 19,
-                          fontWeight: FontWeight.bold,
+        for (final row in _keyRows)
+          Expanded(
+            child: Row(
+              spacing: 8,
+              children: [
+                for (final char in row)
+                  Expanded(
+                    child: FocusRing(
+                      radius: 10,
+                      child: Material(
+                        color: colors.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(10),
+                        clipBehavior: Clip.antiAlias,
+                        child: InkWell(
+                          onTap: () => onKeyPress(char),
+                          child: Center(
+                            child: Text(
+                              char,
+                              style: const TextStyle(
+                                fontSize: 19,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              );
-            },
+              ],
+            ),
           ),
-        ),
-        const SizedBox(height: 8),
         Row(
           spacing: 8,
           children: [
