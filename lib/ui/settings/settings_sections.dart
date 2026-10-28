@@ -27,6 +27,7 @@ enum SettingsGroup {
   playback('播放', Icons.play_arrow_rounded),
   download('下载', Icons.download_rounded),
   sources('站源', Icons.dns_outlined),
+  search('搜索', Icons.search_rounded),
   proxy('代理', Icons.language_rounded),
   users('用户', Icons.manage_accounts_outlined),
   about('关于', Icons.info_outline_rounded),
@@ -88,6 +89,7 @@ class SettingsSection extends StatelessWidget {
               SettingsGroup.playback => _playback(context),
               SettingsGroup.download => _download(context),
               SettingsGroup.sources => _sources(context),
+              SettingsGroup.search => _search(context),
               SettingsGroup.proxy => _proxy(context),
               SettingsGroup.users => [UsersView(store: store, open: open)],
               SettingsGroup.about => _about(context),
@@ -268,11 +270,26 @@ class SettingsSection extends StatelessWidget {
     ];
   }
 
+  List<Widget> _search(BuildContext context) => [
+    SettingsCard(
+      children: [
+        SwitchTile(
+          title: '拼音首字母搜索',
+          subtitle: '开启后用拼音首字母输入搜索（如 BFLC），关闭则用中文输入搜索',
+          value: store.pinyinSearch,
+          onChanged: (value) => saveSetting(
+            context,
+            () => store.setPinyinSearch(value),
+          ),
+        ),
+      ],
+    ),
+  ];
+
   List<Widget> _proxy(BuildContext context) {
     final admin = store.profile.admin;
     final settings = editor.settings;
-    final editable = settings != null && !editor.saving;
-    final mode = settings?.proxyMode;
+    final editable = settings != null && !editor.saving;    final mode = settings?.proxyMode;
     return [
       if (settings != null && settings.warning.isNotEmpty)
         _Note(settings.warning),
