@@ -238,7 +238,9 @@ class _TelevisionPlayerPageState extends State<TelevisionPlayerPage>
       ).then((_) {
         if (mounted) {
           setState(() => _danmakuSettingsOpen = false);
-          _danmaku.requestFocus();
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _danmaku.requestFocus();
+          });
         }
       }),
     );
