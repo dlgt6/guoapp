@@ -33,9 +33,9 @@ class PinyinKeyboard extends StatelessWidget {
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 6,
-              mainAxisSpacing: 8,
+              mainAxisSpacing: 10,
               crossAxisSpacing: 8,
-              childAspectRatio: 1.4,
+              childAspectRatio: 1.0,
             ),
             itemCount: _keys.length,
             itemBuilder: (context, index) {
