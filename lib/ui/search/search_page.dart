@@ -12,6 +12,7 @@ import '../detail/detail_page.dart';
 import '../shell/app_shell.dart';
 import '../widgets/drama_grid.dart';
 import '../widgets/focus_ring.dart';
+import '../widgets/pinyin_keyboard.dart';
 import '../widgets/search_field.dart';
 import '../widgets/status_view.dart';
 
@@ -66,18 +67,24 @@ class _SearchPageState extends State<SearchPage> {
   void _submit(String text) {
     final query = text.trim();
     if (query.isEmpty) return;
-    _controller.text = query;
+    final pinyin = widget.store.pinyinSearch;
+    final target = pinyin &&
+            _suggestions.isNotEmpty &&
+            RegExp(r'^[a-zA-Z0-9]+$').hasMatch(query)
+        ? _suggestions.first
+        : query;
+    if (_controller.text != target) _controller.text = target;
     _focus.unfocus();
     _debounce?.cancel();
     _suggestion++;
-    unawaited(widget.store.rememberSearch(query).catchError((Object _) {}));
+    unawaited(widget.store.rememberSearch(target).catchError((Object _) {}));
     _results?.dispose();
     final results = _results = DramaFeed(
-      load: (page, _) => _catalog.search(query, page: page),
+      load: (page, _) => _catalog.search(target, page: page),
     )..addListener(() => setState(() {}));
     unawaited(results.reload());
     setState(() {
-      _submitted = query;
+      _submitted = target;
       _suggestions = const [];
     });
   }
@@ -106,39 +113,123 @@ class _SearchPageState extends State<SearchPage> {
   );
 
   @override
-  Widget build(BuildContext context) {
-    final field = SearchField(
-      hint: '在 ${widget.source.name} 中搜索',
-      controller: _controller,
-      focusNode: _focus,
-      autofocus: widget.query.isEmpty,
-      onChanged: _changed,
-      onSubmitted: _submit,
-    );
-    if (AppScope.of(context).television) {
-      return Scaffold(
-        body: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                televisionInset,
-                27,
-                televisionInset,
-                0,
-              ),
-              child: field,
-            ),
-            Expanded(child: _body(context)),
-          ],
-        ),
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: widget.store,
+    builder: (context, _) {
+      final pinyin = widget.store.pinyinSearch;
+      final television = AppScope.of(context).television;
+      if (television && pinyin) return _televisionPinyin(context);
+      final field = SearchField(
+        hint: pinyin ? '输入拼音首字母搜索' : '在 ${widget.source.name} 中搜索',
+        controller: _controller,
+        focusNode: _focus,
+        autofocus: widget.query.isEmpty,
+        onChanged: _changed,
+        onSubmitted: _submit,
       );
-    }
+      if (television) {
+        return Scaffold(
+          body: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  televisionInset,
+                  27,
+                  televisionInset,
+                  0,
+                ),
+                child: field,
+              ),
+              Expanded(child: _body(context)),
+            ],
+          ),
+        );
+      }
+      return Scaffold(
+        appBar: AppBar(
+          titleSpacing: 0,
+          title: Padding(padding: const EdgeInsets.only(right: 16), child: field),
+        ),
+        body: SafeArea(top: false, bottom: false, child: _body(context)),
+      );
+    },
+  );
+
+  Widget _televisionPinyin(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final query = _controller.text;
     return Scaffold(
-      appBar: AppBar(
-        titleSpacing: 0,
-        title: Padding(padding: const EdgeInsets.only(right: 16), child: field),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(televisionInset, 27, televisionInset, 8),
+            child: Container(
+              height: 48,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: colors.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: colors.primary.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.search_rounded, color: colors.primary, size: 24),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      query.isEmpty ? '按遥控器输入拼音首字母 (如: BFLC)' : query,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: query.isEmpty ? FontWeight.normal : FontWeight.bold,
+                        color: query.isEmpty ? colors.onSurfaceVariant : colors.onSurface,
+                        letterSpacing: query.isEmpty ? 0 : 2,
+                      ),
+                    ),
+                  ),
+                  if (query.isNotEmpty)
+                    Text(
+                      '${query.length} 字母',
+                      style: TextStyle(color: colors.onSurfaceVariant, fontSize: 14),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(televisionInset, 0, televisionInset, 27),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                spacing: 16,
+                children: [
+                  SizedBox(
+                    width: 360,
+                    child: PinyinKeyboard(
+                      hasInput: query.isNotEmpty,
+                      onKeyPress: (char) {
+                        _controller.text += char;
+                        _changed(_controller.text);
+                      },
+                      onBackspace: () {
+                        if (query.isNotEmpty) {
+                          _controller.text = query.substring(0, query.length - 1);
+                          _changed(_controller.text);
+                        }
+                      },
+                      onClear: () {
+                        _controller.clear();
+                        _changed('');
+                      },
+                      onSearch: () => _submit(_controller.text),
+                    ),
+                  ),
+                  Expanded(child: _body(context)),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
-      body: SafeArea(top: false, bottom: false, child: _body(context)),
     );
   }
 
