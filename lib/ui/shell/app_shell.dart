@@ -102,7 +102,12 @@ class _AppShellState extends State<AppShell> {
     super.dispose();
   }
 
-  void _select(AppTab tab) => setState(() => _tab = tab);
+  void _select(AppTab tab) => setState(() {
+    _tab = tab;
+    if (tab == AppTab.search && widget.store.pinyinSearch) {
+      _navigators[AppTab.search.index] = GlobalKey<NavigatorState>();
+    }
+  });
 
   void _followFocus() {
     final previous = _lastFocus;
