@@ -47,7 +47,7 @@ class PinyinKeyboard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10),
                   clipBehavior: Clip.antiAlias,
                   child: InkWell(
-                    autofocus: index == 0,
+
                     onTap: () => onKeyPress(char),
                     child: Center(
                       child: Text(
