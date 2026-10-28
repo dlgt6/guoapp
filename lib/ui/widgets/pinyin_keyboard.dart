@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'focus_ring.dart';
 
-class PinyinKeyboard extends StatelessWidget {
+class PinyinKeyboard extends StatefulWidget {
   const PinyinKeyboard({
     super.key,
     required this.onKeyPress,
@@ -16,6 +16,21 @@ class PinyinKeyboard extends StatelessWidget {
   final VoidCallback onClear;
   final VoidCallback onSearch;
   final bool hasInput;
+
+  @override
+  State<PinyinKeyboard> createState() => _PinyinKeyboardState();
+}
+
+class _PinyinKeyboardState extends State<PinyinKeyboard> {
+  final _actionFocusNodes = [FocusNode(), FocusNode(), FocusNode()];
+
+  @override
+  void dispose() {
+    for (final node in _actionFocusNodes) {
+      node.dispose();
+    }
+    super.dispose();
+  }
 
   static const _keyRows = [
     ['A', 'B', 'C', 'D', 'E', 'F'],
@@ -46,7 +61,7 @@ class PinyinKeyboard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(10),
                         clipBehavior: Clip.antiAlias,
                         child: InkWell(
-                          onTap: () => onKeyPress(char),
+                          onTap: () => widget.onKeyPress(char),
                           child: Center(
                             child: Text(
                               char,
@@ -63,34 +78,39 @@ class PinyinKeyboard extends StatelessWidget {
               ],
             ),
           ),
-        Row(
-          spacing: 8,
-          children: [
-            Expanded(
-              child: _actionButton(
-                context,
-                '退格',
-                Icons.backspace_outlined,
-                hasInput ? onBackspace : null,
+        Expanded(
+          child: Row(
+            spacing: 8,
+            children: [
+              Expanded(
+                child: _actionButton(
+                  context,
+                  '退格',
+                  Icons.backspace_outlined,
+                  widget.hasInput ? widget.onBackspace : null,
+                  _actionFocusNodes[0],
+                ),
               ),
-            ),
-            Expanded(
-              child: _actionButton(
-                context,
-                '清空',
-                Icons.delete_outline_rounded,
-                hasInput ? onClear : null,
+              Expanded(
+                child: _actionButton(
+                  context,
+                  '清空',
+                  Icons.delete_outline_rounded,
+                  widget.hasInput ? widget.onClear : null,
+                  _actionFocusNodes[1],
+                ),
               ),
-            ),
-            Expanded(
-              child: _actionButton(
-                context,
-                '搜索',
-                Icons.search_rounded,
-                hasInput ? onSearch : null,
+              Expanded(
+                child: _actionButton(
+                  context,
+                  '搜索',
+                  Icons.search_rounded,
+                  widget.hasInput ? widget.onSearch : null,
+                  _actionFocusNodes[2],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ],
     );
@@ -101,6 +121,7 @@ class PinyinKeyboard extends StatelessWidget {
     String label,
     IconData icon,
     VoidCallback? onPressed,
+    FocusNode focusNode,
   ) {
     final colors = Theme.of(context).colorScheme;
     return FocusRing(
@@ -112,6 +133,7 @@ class PinyinKeyboard extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
+          focusNode: focusNode,
           onTap: onPressed,
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 10),
