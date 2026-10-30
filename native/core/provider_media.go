@@ -45,6 +45,8 @@ func (d *Downloader) providerBaseURL(source string) string {
 		configured, fallback = d.cfg.GuipianURL, guipianSiteBaseURL
 	case sourceHanxiaoquan:
 		configured, fallback = d.cfg.HanxiaoquanURL, hanxiaoquanSiteBaseURL
+	case sourceHmjc:
+		configured, fallback = d.cfg.HmjcURL, hmjcSiteBaseURL
 	default:
 		fallback = "https://d2pypzndaqisk.cloudfront.net"
 	}
@@ -81,6 +83,8 @@ func providerSourceForURL(raw string) string {
 		return sourceGuipian
 	case host == "jennyhow.com" || host == "www.jennyhow.com":
 		return sourceHanxiaoquan
+	case host == "kuaikaw.cn" || host == "www.kuaikaw.cn" || host == "freevideo.zqqds.cn":
+		return sourceHmjc
 	default:
 		return ""
 	}
@@ -141,6 +145,9 @@ func (d *Downloader) resolveProviderMedia(ctx context.Context, task Task) (provi
 	}
 	if chapter.Source == sourceHanxiaoquan {
 		return d.resolveHanxiaoquanMedia(ctx, task)
+	}
+	if chapter.Source == sourceHmjc {
+		return d.resolveHmjcMedia(ctx, task)
 	}
 	if strings.HasPrefix(chapter.VideoURL, "hongguo-cenc://") {
 		return d.resolveHongguoMedia(ctx, task)
