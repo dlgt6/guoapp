@@ -15,7 +15,8 @@ class SourceSite {
       id == 'dsd' ||
       id == 'sorani' ||
       id == 'guipian' ||
-      id == 'hanxiaoquan';
+      id == 'hanxiaoquan' ||
+      id == 'hmjc';
   bool get searchSuggestions => id == 'hongguo';
   String get groupId => switch (id) {
     'huangguo-video' || 'huangguoai' || 'cloudfront' => 'huangguo',
@@ -38,8 +39,9 @@ class SourceSite {
     '韩小圈',
     '韩剧 · 韩国电影 · 综艺动漫',
   );
+  static const hmjc = SourceSite('hmjc', '河马剧场', '短剧 · 影视 · 全集播放');
 
-  static const primaryValues = [hongguo, hanxiaoquan, guipian, sorani];
+  static const primaryValues = [hongguo, hmjc, hanxiaoquan, guipian, sorani];
 
   static const restrictedValues = [
     SourceSite('huangdou', '黄豆', '精选短剧'),
