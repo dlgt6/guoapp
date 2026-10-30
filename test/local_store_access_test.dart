@@ -137,7 +137,7 @@ void main() {
       expect(
         store.sources.map((site) => site.id),
         allSourcesEnabled
-            ? ['hongguo', 'hanxiaoquan', 'guipian', 'sorani']
+            ? ['hongguo', 'hmjc', 'hanxiaoquan', 'guipian', 'sorani']
             : ['hongguo'],
       );
       for (final site in SourceSite.restrictedValues) {
@@ -161,7 +161,7 @@ void main() {
       final restarted = restartStore(store);
       expect(restarted.allowsSource('hongguo'), isFalse);
       expect(restarted.allowsSource('dsd'), allSourcesEnabled);
-      expect(restarted.source, allSourcesEnabled ? 'hanxiaoquan' : '');
+      expect(restarted.source, allSourcesEnabled ? 'hmjc' : '');
     });
 
     for (final source in ['huangdou', 'dsd']) {

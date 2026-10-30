@@ -106,7 +106,7 @@ void main() {
     });
     await store.setSourceEnabled('hongguo', false);
     await pumpEventQueue();
-    expect(explore.source?.id, allSourcesEnabled ? 'hanxiaoquan' : null);
+    expect(explore.source?.id, allSourcesEnabled ? 'hmjc' : null);
     expect(explore.feed == null, !allSourcesEnabled);
 
     await store.setSourceEnabled('hongguo', true);

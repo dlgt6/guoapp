@@ -79,6 +79,7 @@ void main() {
         'downloadPreferences',
         'catalogView',
         'recentSearches',
+        'pinyinSearch',
       });
     });
 
