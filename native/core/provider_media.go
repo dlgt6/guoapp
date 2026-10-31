@@ -47,6 +47,8 @@ func (d *Downloader) providerBaseURL(source string) string {
 		configured, fallback = d.cfg.HanxiaoquanURL, hanxiaoquanSiteBaseURL
 	case sourceHmjc:
 		configured, fallback = d.cfg.HmjcURL, hmjcSiteBaseURL
+	case sourceQimao:
+		configured, fallback = d.cfg.QimaoURL, qimaoSiteBaseURL
 	default:
 		fallback = "https://d2pypzndaqisk.cloudfront.net"
 	}
@@ -85,6 +87,8 @@ func providerSourceForURL(raw string) string {
 		return sourceHanxiaoquan
 	case host == "kuaikaw.cn" || host == "www.kuaikaw.cn" || host == "freevideo.zqqds.cn":
 		return sourceHmjc
+	case host == "7maoduanju.com" || host == "www.7maoduanju.com" || host == "7maotv.com" || host == "www.7maotv.com" || host == "7maotv1.com" || host == "www.7maotv1.com" || host == "7maotv2.com" || host == "www.7maotv2.com" || host == "7maotv3.com" || host == "www.7maotv3.com" || host == "7maotv4.com" || host == "www.7maotv4.com" || host == "7cat-media.bedfpk.cn" || host == "7cat-pic.bedfpk.cn":
+		return sourceQimao
 	default:
 		return ""
 	}
@@ -148,6 +152,9 @@ func (d *Downloader) resolveProviderMedia(ctx context.Context, task Task) (provi
 	}
 	if chapter.Source == sourceHmjc {
 		return d.resolveHmjcMedia(ctx, task)
+	}
+	if chapter.Source == sourceQimao {
+		return d.resolveQimaoMedia(ctx, task)
 	}
 	if strings.HasPrefix(chapter.VideoURL, "hongguo-cenc://") {
 		return d.resolveHongguoMedia(ctx, task)
