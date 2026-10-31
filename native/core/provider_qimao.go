@@ -34,7 +34,8 @@ var (
 	reQimaoCardTitle  = regexp.MustCompile(`(?is)<span class="drama-card-link__title">([^<]*)</span>`)
 	reQimaoCardHeat   = regexp.MustCompile(`(?is)<span class="drama-card-link__heat">[^<]*<!--\s*-->([^<]*)</span>`)
 	reQimaoCardAccess = regexp.MustCompile(`(?is)<span class="drama-card-link__access"[^>]*>([^<]*)</span>`)
-	reQimaoEpisodes   = regexp.MustCompile(`(?s)\\"episodes\\":\[(.*?)\]`)
+	reQimaoUUID       = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+	reQimaoEpisodes   = regexp.MustCompile(`(?s)\\"episodes\\":\[`)
 	reQimaoEpID       = regexp.MustCompile(`(?s)\\"id\\":\\"([0-9a-f-]{36})\\"`)
 	reQimaoEpIndexNo  = regexp.MustCompile(`(?s)\\"indexNo\\":(\d+)`)
 	reQimaoEpLocked   = regexp.MustCompile(`(?s)\\"locked\\":(true|false)`)
@@ -58,11 +59,7 @@ func validQimaoCategory(category string) bool {
 }
 
 func qimaoUUID(id string) bool {
-	id = strings.TrimSpace(id)
-	if len(id) != 36 {
-		return false
-	}
-	return reQimaoCard.MatchString(fmt.Sprintf(`<a href="/drama/%s/">`, id))
+	return reQimaoUUID.MatchString(strings.TrimSpace(id))
 }
 
 func (d *Downloader) fetchQimaoCategories() []nativeCategory {
@@ -237,24 +234,25 @@ type qimaoEpisode struct {
 }
 
 func qimaoParseEpisodes(body string) []qimaoEpisode {
-	m := reQimaoEpisodes.FindStringSubmatch(body)
-	if len(m) < 2 {
+	loc := reQimaoEpisodes.FindStringIndex(body)
+	if loc == nil {
 		return nil
 	}
-	segment := m[1]
-	var episodes []qimaoEpisode
+	start := loc[1]
 	depth := 0
-	start := -1
-	for i := 0; i < len(segment); i++ {
-		if segment[i] == '{' {
+	var episodes []qimaoEpisode
+	objStart := -1
+	for i := start; i < len(body); i++ {
+		ch := body[i]
+		if ch == '{' {
 			if depth == 0 {
-				start = i
+				objStart = i
 			}
 			depth++
-		} else if segment[i] == '}' {
+		} else if ch == '}' {
 			depth--
-			if depth == 0 && start >= 0 {
-				obj := segment[start : i+1]
+			if depth == 0 && objStart >= 0 {
+				obj := body[objStart : i+1]
 				ep := qimaoEpisode{}
 				if idMatch := reQimaoEpID.FindStringSubmatch(obj); len(idMatch) > 1 {
 					ep.ID = idMatch[1]
@@ -276,8 +274,10 @@ func qimaoParseEpisodes(body string) []qimaoEpisode {
 				if ep.ID != "" && ep.IndexNo > 0 {
 					episodes = append(episodes, ep)
 				}
-				start = -1
+				objStart = -1
 			}
+		} else if ch == ']' && depth == 0 {
+			break
 		}
 	}
 	return episodes
