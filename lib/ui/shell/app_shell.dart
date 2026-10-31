@@ -12,6 +12,7 @@ import '../explore/source_actions.dart';
 import '../follow/follow_page.dart';
 import '../mine/mine_page.dart';
 import '../search/search_page.dart';
+
 import '../widgets/bar_button.dart';
 import '../widgets/focus_ring.dart';
 import '../widgets/source_bar.dart';
@@ -20,7 +21,8 @@ enum AppTab {
   explore('发现', Icons.explore_outlined, Icons.explore),
   search('搜索', Icons.search_outlined, Icons.search_rounded),
   follow('追剧', Icons.bookmark_border_rounded, Icons.bookmark_rounded),
-  mine('我的', Icons.person_outline_rounded, Icons.person_rounded);
+  mine('我的', Icons.person_outline_rounded, Icons.person_rounded),
+  sources('全部站源', Icons.dns_outlined, Icons.dns_rounded);
 
   const AppTab(this.label, this.icon, this.selectedIcon);
   final String label;
@@ -104,6 +106,10 @@ class _AppShellState extends State<AppShell> {
   }
 
   void _select(AppTab tab) {
+    if (tab == AppTab.sources) {
+      pickSource(context, widget.store);
+      return;
+    }
     if (tab == AppTab.search &&
         tab != _tab &&
         widget.store.pinyinSearch) {
@@ -152,6 +158,7 @@ class _AppShellState extends State<AppShell> {
       entryFocus: _mineEntry,
       onExitUp: _tabFocus[AppTab.mine.index].requestFocus,
     ),
+    AppTab.sources => const Scaffold(),
   };
 
   @override
@@ -228,7 +235,9 @@ class _AppShellState extends State<AppShell> {
                         final entry = switch (_tab) {
                           AppTab.follow => _followEntry,
                           AppTab.mine => _mineEntry,
-                          AppTab.explore || AppTab.search => null,
+                          AppTab.explore ||
+                          AppTab.search ||
+                          AppTab.sources => null,
                         };
                         if (event is KeyUpEvent ||
                             event.logicalKey != LogicalKeyboardKey.arrowDown ||
