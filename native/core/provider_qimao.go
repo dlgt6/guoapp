@@ -194,18 +194,77 @@ func (d *Downloader) searchQimao(ctx context.Context, page int, query string) ([
 	return parseQimaoCards(body), false, nil
 }
 
-func qimaoUnescape(s string) string {
-	s = strings.ReplaceAll(s, `\"`, `"`)
-	s = strings.ReplaceAll(s, `\\`, `\`)
-	s = strings.ReplaceAll(s, `\n`, "\n")
-	s = strings.ReplaceAll(s, `\t`, "\t")
-	return s
+func qimaoRSCUnescape(s string) string {
+	var sb strings.Builder
+	i := 0
+	for i < len(s) {
+		if s[i] == '\\' && i+1 < len(s) {
+			switch s[i+1] {
+			case '"':
+				sb.WriteByte('"')
+				i += 2
+				continue
+			case '\\':
+				sb.WriteByte('\\')
+				i += 2
+				continue
+			case 'n':
+				sb.WriteByte('\n')
+				i += 2
+				continue
+			case 't':
+				sb.WriteByte('\t')
+				i += 2
+				continue
+			}
+		}
+		sb.WriteByte(s[i])
+		i++
+	}
+	return sb.String()
 }
 
 func qimaoDetailField(body, field string) string {
-	re := regexp.MustCompile(`(?s)\\"` + field + `\\":\\"((?:[^"\\]|\\.)*)\\"`)
-	if m := re.FindStringSubmatch(body); len(m) > 1 {
-		return qimaoUnescape(m[1])
+	prefix := `\"` + field + `\":\"`
+	idx := strings.Index(body, prefix)
+	if idx < 0 {
+		return ""
+	}
+	start := idx + len(prefix)
+	i := start
+	for i < len(body) {
+		if body[i] == '\\' && i+1 < len(body) && body[i+1] == '"' {
+			backslashes := 0
+			j := i - 1
+			for j >= start && body[j] == '\\' {
+				backslashes++
+				j--
+			}
+			if backslashes%2 == 0 {
+				break
+			}
+		}
+		i++
+	}
+	if i > start {
+		return qimaoRSCUnescape(body[start:i])
+	}
+	return ""
+}
+
+func qimaoDetailNumber(body, field string) string {
+	prefix := `\"` + field + `\":`
+	idx := strings.Index(body, prefix)
+	if idx < 0 {
+		return ""
+	}
+	start := idx + len(prefix)
+	end := start
+	for end < len(body) && body[end] >= '0' && body[end] <= '9' {
+		end++
+	}
+	if end > start {
+		return body[start:end]
 	}
 	return ""
 }
@@ -219,7 +278,7 @@ func qimaoDetailTags(body string) []string {
 	var tags []string
 	for _, tag := range regexp.MustCompile(`\\"((?:[^"\\]|\\.)*)\\"`).FindAllStringSubmatch(m[1], -1) {
 		if len(tag) > 1 {
-			tags = append(tags, qimaoUnescape(tag[1]))
+			tags = append(tags, qimaoRSCUnescape(tag[1]))
 		}
 	}
 	return tags
@@ -262,15 +321,15 @@ func qimaoParseEpisodes(body string) []qimaoEpisode {
 						ep.IndexNo = n
 					}
 				}
-				if titleMatch := reQimaoEpTitle.FindStringSubmatch(obj); len(titleMatch) > 1 {
-					ep.Title = qimaoUnescape(titleMatch[1])
-				}
+			if titleMatch := reQimaoEpTitle.FindStringSubmatch(obj); len(titleMatch) > 1 {
+				ep.Title = qimaoRSCUnescape(titleMatch[1])
+			}
 				if lockedMatch := reQimaoEpLocked.FindStringSubmatch(obj); len(lockedMatch) > 1 {
 					ep.Locked = lockedMatch[1] == "true"
 				}
-				if urlMatch := reQimaoEpContent.FindStringSubmatch(obj); len(urlMatch) > 1 {
-					ep.URL = qimaoUnescape(urlMatch[1])
-				}
+			if urlMatch := reQimaoEpContent.FindStringSubmatch(obj); len(urlMatch) > 1 {
+				ep.URL = qimaoRSCUnescape(urlMatch[1])
+			}
 				if ep.ID != "" && ep.IndexNo > 0 {
 					episodes = append(episodes, ep)
 				}
@@ -323,7 +382,7 @@ func (d *Downloader) fetchQimaoDetail(ctx context.Context, sourceID string) (Dra
 	cover := qimaoFixURL(qimaoDetailField(body, "coverUrl"))
 	description := qimaoDetailField(body, "description")
 	tags := qimaoDetailTags(body)
-	heat := qimaoDetailField(body, "heat")
+	heat := qimaoDetailNumber(body, "heat")
 	payMode := qimaoDetailField(body, "payMode")
 	remark := ""
 	if heat != "" {
