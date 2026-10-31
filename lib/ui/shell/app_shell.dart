@@ -22,7 +22,7 @@ enum AppTab {
   search('搜索', Icons.search_outlined, Icons.search_rounded),
   follow('追剧', Icons.bookmark_border_rounded, Icons.bookmark_rounded),
   mine('我的', Icons.person_outline_rounded, Icons.person_rounded),
-  sources('全部站源', Icons.dns_outlined, Icons.dns_rounded);
+  sources('站源', Icons.dns_outlined, Icons.dns_rounded);
 
   const AppTab(this.label, this.icon, this.selectedIcon);
   final String label;
