@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -179,6 +180,15 @@ func (d *Downloader) fetchQimaoCatalogPage(ctx context.Context, page int, catego
 	return items, hasMore, nil
 }
 
+type qimaoSearchItem struct {
+	ID           string `json:"id"`
+	Title        string `json:"title"`
+	CoverURL     string `json:"coverUrl"`
+	Heat         int    `json:"heat"`
+	EpisodeCount int    `json:"episodeCount"`
+	PayMode      string `json:"payMode"`
+}
+
 func (d *Downloader) searchQimao(ctx context.Context, page int, query string) ([]Drama, bool, error) {
 	query = strings.TrimSpace(query)
 	if query == "" || len(query) > 256 {
@@ -187,11 +197,44 @@ func (d *Downloader) searchQimao(ctx context.Context, page int, query string) ([
 	if page > 1 {
 		return []Drama{}, false, nil
 	}
-	body, err := d.qimaoGet(ctx, "/search/?q="+url.QueryEscape(query))
+	body, err := d.qimaoGet(ctx, "/api/toc/v1/search?q="+url.QueryEscape(query))
 	if err != nil {
 		return nil, false, err
 	}
-	return parseQimaoCards(body), false, nil
+	var items []qimaoSearchItem
+	if err := json.Unmarshal([]byte(body), &items); err != nil {
+		return nil, false, err
+	}
+	result := make([]Drama, 0, len(items))
+	for _, item := range items {
+		if item.ID == "" || item.Title == "" {
+			continue
+		}
+		cover := qimaoFixURL(item.CoverURL)
+		remark := ""
+		if item.Heat > 0 {
+			remark = strconv.Itoa(item.Heat) + " 热度"
+		}
+		if item.PayMode != "" && item.PayMode != "free" {
+			if remark != "" {
+				remark += " · "
+			}
+			remark += "VIP"
+		}
+		result = append(result, Drama{
+			ID:           providerDramaID(sourceQimao, item.ID),
+			Source:       sourceQimao,
+			SourceID:     item.ID,
+			Title:        truncate(item.Title, 512),
+			Name:         truncate(item.Title, 512),
+			Cover:        cover,
+			CoverURL:     cover,
+			ChannelName:  "七猫短剧",
+			CategoryName: "短剧",
+			Remark:       truncate(remark, 64),
+		})
+	}
+	return result, false, nil
 }
 
 func qimaoRSCUnescape(s string) string {
