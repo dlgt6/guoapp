@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - &setup-go
         uses: actions/setup-go@v5
         with:
@@ -54,7 +54,7 @@ jobs:
       version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - id: version
         env:
           GH_TOKEN: ${{ github.token }}
@@ -90,12 +90,12 @@ jobs:
           - edition: zhenguojian
             arguments: '--all-sources'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - &setup-python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -163,7 +163,7 @@ jobs:
     timeout-minutes: 45
     strategy: *editions
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - *setup-go
       - *setup-python
       - *setup-flutter
@@ -192,7 +192,7 @@ jobs:
     timeout-minutes: 60
     strategy: *editions
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - *setup-python
       - *setup-go
       - *setup-flutter
@@ -227,7 +227,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/download-artifact@v4
         with:
           path: release
