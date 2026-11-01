@@ -17,7 +17,8 @@ class SourceSite {
       id == 'guipian' ||
       id == 'hanxiaoquan' ||
       id == 'hmjc' ||
-      id == 'qimao';
+      id == 'qimao' ||
+      id == 'xifan';
   bool get searchSuggestions => id == 'hongguo';
   String get groupId => switch (id) {
     'huangguo-video' || 'huangguoai' || 'cloudfront' => 'huangguo',
@@ -42,8 +43,9 @@ class SourceSite {
   );
   static const hmjc = SourceSite('hmjc', '河马剧场', '短剧 · 影视 · 全集播放');
   static const qimao = SourceSite('qimao', '七猫短剧', '短剧 · VIP 解锁 · 全集播放');
+  static const xifan = SourceSite('xifan', '西饭短剧', '短剧 · 分类 · 全集播放');
 
-  static const primaryValues = [hongguo, hmjc, qimao, hanxiaoquan, guipian, sorani];
+  static const primaryValues = [hongguo, hmjc, xifan, hanxiaoquan, guipian, sorani];
 
   static const restrictedValues = [
     SourceSite('huangdou', '黄豆', '精选短剧'),
@@ -53,6 +55,7 @@ class SourceSite {
     SourceSite('huangguo-video', '黄果视频', '视频剧集'),
     SourceSite('huangguoai', '黄果 AI', 'AI 短剧'),
     SourceSite('cloudfront', '黄果旧版', '旧 API 剧库'),
+    qimao,
   ];
   static const knownValues = [...primaryValues, ...restrictedValues];
   static const allValues = [...primaryValues, ...restrictedValues];
