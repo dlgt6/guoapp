@@ -181,14 +181,12 @@ func qmplayletDramaList(list []any) []Drama {
 			continue
 		}
 		cover := strings.TrimSpace(mapString(v, "image_link"))
-		remark := strings.TrimSpace(fmt.Sprint(v["hot_value"]))
 		out = append(out, Drama{
 			ID: providerDramaID(sourceQmplaylet, id),
 			Source: sourceQmplaylet, SourceID: id,
 			Title: truncate(title, 512), Name: truncate(title, 512),
 			Cover: cover, CoverURL: cover,
 			ChannelName: "七猫", CategoryName: "短剧",
-			Remark: truncate(remark, 64),
 		})
 	}
 	return out
@@ -256,12 +254,16 @@ func (d *Downloader) searchQmplaylet(ctx context.Context, page int, query string
 			continue
 		}
 		seen[id] = true
-		title := strings.TrimSpace(mapString(v, "title"))
+		title := cleanText(mapString(v, "title"))
 		if title == "" {
 			continue
 		}
 		cover := strings.TrimSpace(mapString(v, "image_link"))
-		remark := strings.TrimSpace(fmt.Sprint(v["total_num"]))
+		remark := ""
+		totalNum := strings.TrimSpace(fmt.Sprint(v["total_num"]))
+		if totalNum != "" && totalNum != "0" {
+			remark = totalNum + "集"
+		}
 		out = append(out, Drama{
 			ID: providerDramaID(sourceQmplaylet, id),
 			Source: sourceQmplaylet, SourceID: id,
