@@ -49,8 +49,8 @@ func (d *Downloader) xyduanjuLogin(ctx context.Context) bool {
 		data := map[string]any{
 			"device": "2a50580e69d38388c94c93605241fb306",
 			"package_name": "com.jz.xydj", "android_id": "ec1280db12795506",
-			"install_first_open": true, "first_install_time": 1752505243345,
-			"last_update_time": 1752505243345, "report_link_url": "",
+			"install_first_open": true, "first_install_time": int64(1752505243345),
+			"last_update_time": int64(1752505243345), "report_link_url": "",
 			"authorization": "", "timestamp": time.Now().UnixMilli(),
 		}
 		raw, _ := json.Marshal(data)
