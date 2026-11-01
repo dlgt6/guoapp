@@ -33,6 +33,7 @@ const (
 	sourceHanxiaoquan   = "hanxiaoquan"
 	sourceHmjc          = "hmjc"
 	sourceQimao         = "qimao"
+	sourceXifan         = "xifan"
 
 	providerMaxBodyBytes = 20 * 1024 * 1024
 	providerTimeout      = 12 * time.Second
@@ -95,7 +96,7 @@ func splitProviderDramaID(id string) (source, sourceID string, ok bool) {
 
 func isHuangguoProviderSource(source string) bool {
 	switch canonicalProviderSource(source) {
-	case sourceHuangguoAI, sourceHuangguoVideo, sourceHuangdou, sourceHongguo, sourceHuangju, sourceYeguo, sourceDSD, sourceCloudFront, sourceSorani, sourceGuipian, sourceHanxiaoquan, sourceHmjc, sourceQimao:
+	case sourceHuangguoAI, sourceHuangguoVideo, sourceHuangdou, sourceHongguo, sourceHuangju, sourceYeguo, sourceDSD, sourceCloudFront, sourceSorani, sourceGuipian, sourceHanxiaoquan, sourceHmjc, sourceQimao, sourceXifan:
 		return true
 	default:
 		return false
@@ -130,6 +131,8 @@ func canonicalProviderSource(source string) string {
 		return sourceHmjc
 	case "qimao", "7maoduanju.com", "www.7maoduanju.com", "7maotv.com", "www.7maotv.com", "7maotv1.com", "www.7maotv1.com", "7maotv2.com", "www.7maotv2.com", "7maotv3.com", "www.7maotv3.com", "7maotv4.com", "www.7maotv4.com":
 		return sourceQimao
+	case "xifan", "xifan-api-cn.youlishipin.com":
+		return sourceXifan
 	default:
 		return strings.TrimSpace(source)
 	}
@@ -253,6 +256,9 @@ func (d *Downloader) GetHuangguoChapters(ctx context.Context, source, sourceID s
 		return drama.DisplayTitle(), chapters, err
 	case sourceQimao:
 		drama, chapters, err := d.fetchQimaoDetail(ctx, sourceID)
+		return drama.DisplayTitle(), chapters, err
+	case sourceXifan:
+		drama, chapters, err := d.fetchXifanDetail(ctx, sourceID)
 		return drama.DisplayTitle(), chapters, err
 	case sourceCloudFront:
 		return d.fetchLegacyChapters(ctx, sourceID)

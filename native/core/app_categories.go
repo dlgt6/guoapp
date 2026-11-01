@@ -74,6 +74,8 @@ func validNativeCategory(source, category string) bool {
 		return validHmjcCategory(category)
 	case sourceQimao:
 		return validQimaoCategory(category)
+	case sourceXifan:
+		return validXifanCategory(category)
 	}
 	return false
 }
@@ -148,6 +150,12 @@ func (engine *nativeEngine) nativeCategories(ctx context.Context, source string,
 		}
 	case sourceQimao:
 		all = append(all, d.fetchQimaoCategories()...)
+	case sourceXifan:
+		var categories []nativeCategory
+		categories, err = d.fetchXifanCategories(ctx)
+		if err == nil {
+			all = append(all, categories...)
+		}
 	default:
 		return nil, errors.New("请选择有效站源")
 	}
