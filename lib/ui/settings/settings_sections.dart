@@ -282,6 +282,15 @@ class SettingsSection extends StatelessWidget {
             () => store.setPinyinSearch(value),
           ),
         ),
+        SwitchTile(
+          title: '聚合搜索',
+          subtitle: '开启后同时在所有已启用站源中搜索，关闭则仅搜索当前选中站源',
+          value: store.aggregateSearch,
+          onChanged: (value) => saveSetting(
+            context,
+            () => store.setAggregateSearch(value),
+          ),
+        ),
       ],
     ),
   ];
