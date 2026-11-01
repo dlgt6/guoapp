@@ -118,6 +118,42 @@ class SourceCatalog {
     );
   }
 
+  Future<CatalogPage> aggregateSearch(
+    List<SourceSite> sources,
+    String query, {
+    int page = 1,
+  }) async {
+    if (page > 1) return CatalogPage(const [], page: page);
+    final futures = <Future<CatalogPage>>[];
+    for (final site in sources) {
+      futures.add(
+        repository
+            .catalog(site.id, query: query, page: 1)
+            .then<CatalogPage>(
+              (result) => CatalogPage(
+                result.items,
+                hasMore: site.pagedSearch && result.hasMore,
+                warning: result.warning,
+                page: result.page,
+                fresh: result.fresh,
+              ),
+            )
+            .catchError((Object _) => CatalogPage(const [])),
+      );
+    }
+    final results = await Future.wait(futures);
+    final seen = <String>{};
+    final items = <Drama>[];
+    var warning = '';
+    for (final result in results) {
+      if (warning.isEmpty && result.warning.isNotEmpty) warning = result.warning;
+      for (final drama in result.items) {
+        if (seen.add(drama.id)) items.add(drama);
+      }
+    }
+    return CatalogPage(items, warning: warning, page: 1, fresh: true);
+  }
+
   String _request(CatalogCategory category) =>
       category.local ? '' : category.id;
 

@@ -321,6 +321,8 @@ class LocalStore extends ChangeNotifier {
       _configurationError == null ? _bool(_key('hideVip')) ?? true : true;
   bool get pinyinSearch =>
       _configurationError == null ? _bool(_key('pinyinSearch')) ?? false : false;
+  bool get aggregateSearch =>
+      _configurationError == null ? _bool(_key('aggregateSearch')) ?? false : false;
   String get displayMode {
     final value = _configurationError == null ? _string('displayMode') : null;
     return {'auto', 'television', 'phone', 'pad', 'window'}.contains(value)
@@ -476,6 +478,8 @@ class LocalStore extends ChangeNotifier {
   Future<void> setHideVip(bool value) => _setting(_key('hideVip'), value);
   Future<void> setPinyinSearch(bool value) =>
       _setting(_key('pinyinSearch'), value);
+  Future<void> setAggregateSearch(bool value) =>
+      _setting(_key('aggregateSearch'), value);
   Future<void> setSource(String value) {
     if (!allowsSource(value)) return Future.error(StateError('当前用户没有此站源权限'));
     return _setting(_key('source'), value);
