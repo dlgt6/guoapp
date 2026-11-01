@@ -202,6 +202,23 @@ class PlaybackSettings extends StatelessWidget {
                         ),
                     ],
                   ),
+                  const SizedBox(height: 18),
+                  Text('弹幕速度', style: label),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final scale in danmakuSpeedScales)
+                        _Choice(
+                          label: '${scale}x',
+                          selected: scale == session.danmakuSpeedScale,
+                          onSelected: () => _change(
+                            () => session.setDanmakuSpeedScale(scale),
+                          ),
+                        ),
+                    ],
+                  ),
                 ],
               ],
             ),

@@ -1110,6 +1110,7 @@ class _TelevisionDanmakuDialogState extends State<_TelevisionDanmakuDialog> {
   late double _fontScale = widget.session.danmakuFontScale;
   late int _rows = widget.session.danmakuRows;
   late DanmakuColorMode _colorMode = widget.session.danmakuColorMode;
+  late double _speedScale = widget.session.danmakuSpeedScale;
   final _toggle = FocusNode(debugLabel: 'tv-danmaku-toggle');
   final _close = FocusNode(debugLabel: 'tv-danmaku-close');
   final _chips = <FocusNode>[];
@@ -1118,7 +1119,7 @@ class _TelevisionDanmakuDialogState extends State<_TelevisionDanmakuDialog> {
   void initState() {
     super.initState();
     final count = danmakuFontScales.length + danmakuRowsOptions.length +
-        DanmakuColorMode.values.length;
+        DanmakuColorMode.values.length + danmakuSpeedScales.length;
     for (var i = 0; i < count; i++) {
       _chips.add(FocusNode(debugLabel: 'tv-danmaku-chip-$i'));
     }
@@ -1332,6 +1333,27 @@ class _TelevisionDanmakuDialogState extends State<_TelevisionDanmakuDialog> {
                       () {
                         _colorMode = mode;
                         _run(() => widget.session.setDanmakuColorMode(mode));
+                      },
+                    ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Text('弹幕速度', style: label),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final scale in danmakuSpeedScales)
+                    _chip(
+                      _chips[chipIndex++],
+                      '${scale}x',
+                      scale == _speedScale,
+                      () {
+                        _speedScale = scale;
+                        _run(
+                          () => widget.session.setDanmakuSpeedScale(scale),
+                        );
                       },
                     ),
                 ],
