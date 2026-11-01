@@ -356,7 +356,7 @@ class SearchPageState extends State<SearchPage> {
                 items: results.items,
                 autofocus: television,
                 onOpen: _open,
-                subtitleOf: widget.store.aggregateSearch
+                sourceBadgeOf: widget.store.aggregateSearch
                     ? (drama) => SourceSite.byId(drama.source).name
                     : null,
               ),
