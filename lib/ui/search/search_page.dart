@@ -44,6 +44,10 @@ class SearchPageState extends State<SearchPage> {
   bool _ready = false;
   bool _searching = false;
   final _suggestionCache = <String, List<String>>{};
+  Map<String, List<Drama>> _aggregateGroups = const {};
+  String _aggregateTab = 'all';
+  bool _aggregateLoading = false;
+  int _aggregateGeneration = 0;
 
   @override
   void didChangeDependencies() {
@@ -77,6 +81,9 @@ class SearchPageState extends State<SearchPage> {
       _submitted = '';
       _suggestions = const [];
       _searching = false;
+      _aggregateGroups = const {};
+      _aggregateTab = 'all';
+      _aggregateLoading = false;
     });
   }
 
@@ -95,18 +102,167 @@ class SearchPageState extends State<SearchPage> {
     _suggestion++;
     unawaited(widget.store.rememberSearch(target).catchError((Object _) {}));
     _results?.dispose();
+    _results = null;
     final aggregate = widget.store.aggregateSearch;
+    if (aggregate) {
+      unawaited(_runAggregate(target));
+      return;
+    }
     final results = _results = DramaFeed(
-      load: aggregate
-          ? (page, _) =>
-              _catalog.aggregateSearch(widget.store.sources, target, page: page)
-          : (page, _) => _catalog.search(target, page: page),
+      load: (page, _) => _catalog.search(target, page: page),
     )..addListener(() => setState(() {}));
     unawaited(results.reload());
     setState(() {
       _submitted = target;
       _suggestions = const [];
     });
+  }
+
+  Future<void> _runAggregate(String target) async {
+    final generation = ++_aggregateGeneration;
+    setState(() {
+      _submitted = target;
+      _suggestions = const [];
+      _aggregateGroups = const {};
+      _aggregateTab = 'all';
+      _aggregateLoading = true;
+    });
+    final sources = widget.store.sources;
+    await Future.wait([
+      for (final site in sources)
+        _repository
+            .catalog(site.id, query: target, page: 1)
+            .then((result) {
+              if (!mounted || generation != _aggregateGeneration) return;
+              setState(() {
+                _aggregateGroups = {
+                  ..._aggregateGroups,
+                  site.id: result.items,
+                };
+              });
+            })
+            .catchError((Object _) {}),
+    ]);
+    if (mounted && generation == _aggregateGeneration) {
+      setState(() => _aggregateLoading = false);
+    }
+  }
+
+  List<Drama> _aggregateItems() {
+    if (_aggregateTab == 'all') {
+      final seen = <String>{};
+      return [
+        for (final items in _aggregateGroups.values)
+          for (final drama in items)
+            if (seen.add(drama.id)) drama,
+      ];
+    }
+    return _aggregateGroups[_aggregateTab] ?? const [];
+  }
+
+  Widget _aggregateBody(BuildContext context) {
+    final television = AppScope.of(context).television;
+    if (_aggregateLoading && _aggregateGroups.isEmpty) {
+      return const StatusView.loading(title: '正在搜索');
+    }
+    final items = _aggregateItems();
+    if (items.isEmpty && !_aggregateLoading) {
+      return StatusView(
+        title: '没有找到「$_submitted」',
+        message: '换个关键词试试',
+        icon: Icons.search_off_rounded,
+      );
+    }
+    final navWidth = television ? 160.0 : 120.0;
+    final inset = television
+        ? televisionInset
+        : AppScope.formFactorOf(context) == FormFactor.phone
+        ? 12.0
+        : 16.0;
+    final theme = Theme.of(context);
+    final allCount = _aggregateGroups.values
+        .expand((l) => l)
+        .fold<int>(0, (n, _) => n + 1);
+    final navTabs = <({String id, String label, int count})>[
+      (id: 'all', label: '全部', count: allCount),
+      for (final entry in _aggregateGroups.entries)
+        if (entry.value.isNotEmpty)
+          (
+            id: entry.key,
+            label: SourceSite.byId(entry.key).name,
+            count: entry.value.length,
+          ),
+    ];
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final gridWidth = constraints.maxWidth - navWidth - inset;
+        return Row(
+          children: [
+            SizedBox(
+              width: navWidth,
+              child: ColoredBox(
+                color: theme.colorScheme.surfaceContainerHigh
+                    .withValues(alpha: 0.5),
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  children: [
+                    for (final tab in navTabs)
+                      ListTile(
+                        dense: true,
+                        selected: _aggregateTab == tab.id,
+                        selectedTileColor: theme.colorScheme.primaryContainer
+                            .withValues(alpha: 0.6),
+                        title: Text(
+                          tab.label,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: _aggregateTab == tab.id
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        trailing: Text(
+                          '${tab.count}',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        onTap: () =>
+                            setState(() => _aggregateTab = tab.id),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            Expanded(
+              child: CustomScrollView(
+                slivers: [
+                  SliverPadding(
+                    padding: EdgeInsets.fromLTRB(
+                      inset,
+                      television ? 16 : 8,
+                      inset,
+                      television ? 27 : 16,
+                    ),
+                    sliver: DramaSliverGrid(
+                      width: gridWidth,
+                      items: items,
+                      autofocus: television,
+                      onOpen: _open,
+                      sourceBadgeOf: (drama) =>
+                          SourceSite.byId(drama.source).name,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _changed(String text) {
@@ -315,6 +471,9 @@ class SearchPageState extends State<SearchPage> {
         ],
       );
     }
+    if (widget.store.aggregateSearch && _submitted.isNotEmpty) {
+      return _aggregateBody(context);
+    }
     final results = _results;
     if (results == null) return _recent(context);
     if (results.items.isEmpty) {
@@ -356,9 +515,7 @@ class SearchPageState extends State<SearchPage> {
                 items: results.items,
                 autofocus: television,
                 onOpen: _open,
-                sourceBadgeOf: widget.store.aggregateSearch
-                    ? (drama) => SourceSite.byId(drama.source).name
-                    : null,
+
               ),
             ),
             SliverPadding(
