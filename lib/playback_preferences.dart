@@ -1,6 +1,8 @@
 import 'video_enhancement_preferences.dart';
 
-const playbackSpeeds = [.5, .75, 1.0, 1.25, 1.5, 2.0, 3.0];
+const playbackSpeeds = [
+  .5, .75, 1.0, 1.05, 1.1, 1.15, 1.2, 1.25, 1.3, 1.35, 1.4, 1.45, 1.5, 2.0, 3.0,
+];
 
 const danmakuFontScales = [
   1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0, 3.5, 4.0, 5.0,
