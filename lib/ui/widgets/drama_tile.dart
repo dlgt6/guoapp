@@ -18,6 +18,7 @@ class _PosterButton extends StatefulWidget {
     this.focusNode,
     this.autofocus = false,
     this.checked,
+    this.sourceBadge,
   });
   final Widget cover;
   final List<Widget> caption;
@@ -27,6 +28,7 @@ class _PosterButton extends StatefulWidget {
   final FocusNode? focusNode;
   final bool autofocus;
   final bool? checked;
+  final String? sourceBadge;
 
   @override
   State<_PosterButton> createState() => _PosterButtonState();
@@ -41,6 +43,7 @@ class _PosterButtonState extends State<_PosterButton> {
   Widget build(BuildContext context) {
     final visible = focusVisible(_focused);
     final layer = _pressed ? 0.12 : (_hovered ? 0.08 : 0.0);
+    final television = AppScope.of(context).television;
     final button = InkWell(
       focusNode: widget.focusNode,
       autofocus: widget.autofocus,
@@ -64,6 +67,45 @@ class _PosterButtonState extends State<_PosterButton> {
                 fit: StackFit.expand,
                 children: [
                   widget.cover,
+                  if (widget.sourceBadge != null)
+                    Positioned(
+                      top: television ? 8 : 0,
+                      left: 0,
+                      child: IgnorePointer(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Color(
+                              television ? 0xCCF44336 : 0xB3F44336,
+                            ),
+                            borderRadius: television
+                                ? BorderRadius.zero
+                                : const BorderRadius.only(
+                                    topLeft: Radius.circular(_coverRadius),
+                                    topRight: Radius.circular(6),
+                                    bottomRight: Radius.circular(6),
+                                  ),
+                          ),
+                          constraints: BoxConstraints(
+                            maxWidth: television ? 96 : 72,
+                          ),
+                          child: Text(
+                            widget.sourceBadge!,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: television ? 14 : 11,
+                              fontWeight: FontWeight.w600,
+                              height: 1.2,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                    ),
                   IgnorePointer(
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 120),
@@ -127,6 +169,7 @@ class DramaTile extends StatelessWidget {
     this.onMore,
     this.focusNode,
     this.autofocus = false,
+    this.sourceBadge,
   });
   final Drama drama;
   final VoidCallback onTap;
@@ -135,6 +178,7 @@ class DramaTile extends StatelessWidget {
   final VoidCallback? onMore;
   final FocusNode? focusNode;
   final bool autofocus;
+  final String? sourceBadge;
 
   static TextStyle titleStyle(BuildContext context) => TextStyle(
     fontSize: AppScope.of(context).television ? 15 : 14,
@@ -165,6 +209,7 @@ class DramaTile extends StatelessWidget {
     onMore: onMore,
     focusNode: focusNode,
     autofocus: autofocus,
+    sourceBadge: sourceBadge,
     caption: [
       const SizedBox(height: 9),
       _line(context, drama.title, titleStyle(context), 2),
