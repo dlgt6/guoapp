@@ -321,7 +321,7 @@ func (d *Downloader) fetchQmplayletDetail(ctx context.Context, sourceID string) 
 			continue
 		}
 		sortStr := strings.TrimSpace(fmt.Sprint(v["sort"]))
-		videoURL := strings.TrimSpace(mapString(v, "video_url"]))
+		videoURL := strings.TrimSpace(mapString(v, "video_url"))
 		if videoURL == "" {
 			continue
 		}
