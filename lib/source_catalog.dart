@@ -146,7 +146,9 @@ class SourceCatalog {
     final items = <Drama>[];
     var warning = '';
     for (final result in results) {
-      if (warning.isEmpty && result.warning.isNotEmpty) warning = result.warning;
+      if (warning.isEmpty && result.warning.isNotEmpty) {
+        warning = result.warning;
+      }
       for (final drama in result.items) {
         if (seen.add(drama.id)) items.add(drama);
       }
