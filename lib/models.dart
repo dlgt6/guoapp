@@ -18,7 +18,9 @@ class SourceSite {
       id == 'hanxiaoquan' ||
       id == 'hmjc' ||
       id == 'qimao' ||
-      id == 'xifan';
+      id == 'xifan' ||
+      id == 'qmplaylet' ||
+      id == 'xyduanju';
   bool get searchSuggestions => id == 'hongguo';
   String get groupId => switch (id) {
     'huangguo-video' || 'huangguoai' || 'cloudfront' => 'huangguo',
@@ -41,11 +43,13 @@ class SourceSite {
     '韩小圈',
     '韩剧 · 韩国电影 · 综艺动漫',
   );
-  static const hmjc = SourceSite('hmjc', '河马剧场', '短剧 · 影视 · 全集播放');
-  static const qimao = SourceSite('qimao', '七猫短剧', '短剧 · VIP 解锁 · 全集播放');
-  static const xifan = SourceSite('xifan', '西饭短剧', '短剧 · 分类 · 全集播放');
+  static const hmjc = SourceSite('hmjc', '河马', '短剧 · 影视 · 全集播放');
+  static const qimao = SourceSite('qimao', '黄猫', '成人短剧 · VIP 解锁 · 全集播放');
+  static const xifan = SourceSite('xifan', '西饭', '短剧 · 分类 · 全集播放');
+  static const qmplaylet = SourceSite('qmplaylet', '七猫', '短剧 · 分类 · 全集播放');
+  static const xyduanju = SourceSite('xyduanju', '星芽', '短剧 · 分类 · 全集播放');
 
-  static const primaryValues = [hongguo, hmjc, xifan, hanxiaoquan, guipian, sorani];
+  static const primaryValues = [hongguo, hmjc, xifan, qmplaylet, xyduanju, hanxiaoquan, guipian, sorani];
 
   static const restrictedValues = [
     SourceSite('huangdou', '黄豆', '精选短剧'),
