@@ -53,6 +53,7 @@ class PlaybackSession extends ChangeNotifier {
     _danmakuFontScale = preferences.danmakuFontScale;
     _danmakuRows = preferences.danmakuRows;
     _danmakuColorMode = preferences.danmakuColorMode;
+    _danmakuSpeedScale = preferences.danmakuSpeedScale;
     _loader = PlaybackLoader(repository);
     _preloader = PlaybackPreloader(repository)..addListener(_prime);
     danmaku = DanmakuController(repository)..setEnabled(_danmakuEnabled);
@@ -169,6 +170,7 @@ class PlaybackSession extends ChangeNotifier {
   double _danmakuFontScale = 1;
   int _danmakuRows = 4;
   DanmakuColorMode _danmakuColorMode = DanmakuColorMode.normal;
+  double _danmakuSpeedScale = 1;
   double _aspectRatio = 9 / 16;
   bool _aspectKnown = false;
   double _resumePosition = 0;
@@ -203,6 +205,7 @@ class PlaybackSession extends ChangeNotifier {
   double get danmakuFontScale => _danmakuFontScale;
   int get danmakuRows => _danmakuRows;
   DanmakuColorMode get danmakuColorMode => _danmakuColorMode;
+  double get danmakuSpeedScale => _danmakuSpeedScale;
   bool get hasPrevious => _index > 0;
   bool get hasNext => _index + 1 < detail.episodes.length;
   String get qualityLabel {
@@ -229,6 +232,7 @@ class PlaybackSession extends ChangeNotifier {
     danmakuFontScale: _danmakuFontScale,
     danmakuRows: _danmakuRows,
     danmakuColorMode: _danmakuColorMode,
+    danmakuSpeedScale: _danmakuSpeedScale,
   );
 
   double get _rate => _boosting ? 2 : _speed;
@@ -278,7 +282,7 @@ class PlaybackSession extends ChangeNotifier {
     danmaku.update(
       position: state.position,
       duration: state.duration,
-      speed: state.rate,
+      speed: state.rate * _danmakuSpeedScale,
       playing: state.playing && _playIntent && !state.completed,
       buffering: state.buffering,
       foreground: _foreground,
@@ -937,6 +941,14 @@ class PlaybackSession extends ChangeNotifier {
     if (!danmakuSupported || value == _danmakuColorMode) return;
     await _savePreferences(_preferences.copyWith(danmakuColorMode: value));
     _danmakuColorMode = value;
+    _notify();
+  }
+
+  Future<void> setDanmakuSpeedScale(double value) async {
+    if (!danmakuSupported || value == _danmakuSpeedScale) return;
+    await _savePreferences(_preferences.copyWith(danmakuSpeedScale: value));
+    _danmakuSpeedScale = value;
+    _syncDanmaku();
     _notify();
   }
 

@@ -10,6 +10,10 @@ const danmakuFontScales = [
 
 const danmakuRowsOptions = [1, 2, 3, 4, 5, 6];
 
+const danmakuSpeedScales = [
+  0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.75, 2.0,
+];
+
 enum TelevisionDecoder { optimized, hardware, software }
 
 enum DanmakuColorMode { normal, colorful, gradient }
@@ -26,6 +30,7 @@ class PlaybackPreferences {
     this.danmakuFontScale = 1,
     this.danmakuRows = 4,
     this.danmakuColorMode = DanmakuColorMode.normal,
+    this.danmakuSpeedScale = 1,
   });
 
   final double speed;
@@ -38,6 +43,7 @@ class PlaybackPreferences {
   final double danmakuFontScale;
   final int danmakuRows;
   final DanmakuColorMode danmakuColorMode;
+  final double danmakuSpeedScale;
 
   PlaybackPreferences copyWith({
     double? speed,
@@ -50,6 +56,7 @@ class PlaybackPreferences {
     double? danmakuFontScale,
     int? danmakuRows,
     DanmakuColorMode? danmakuColorMode,
+    double? danmakuSpeedScale,
   }) => PlaybackPreferences(
     speed: speed ?? this.speed,
     quality: quality ?? this.quality,
@@ -61,6 +68,7 @@ class PlaybackPreferences {
     danmakuFontScale: danmakuFontScale ?? this.danmakuFontScale,
     danmakuRows: danmakuRows ?? this.danmakuRows,
     danmakuColorMode: danmakuColorMode ?? this.danmakuColorMode,
+    danmakuSpeedScale: danmakuSpeedScale ?? this.danmakuSpeedScale,
   );
 
   Map<String, dynamic> toJson() => {
@@ -74,6 +82,7 @@ class PlaybackPreferences {
     'danmakuFontScale': danmakuFontScale,
     'danmakuRows': danmakuRows,
     'danmakuColorMode': danmakuColorMode.name,
+    'danmakuSpeedScale': danmakuSpeedScale,
   };
 
   factory PlaybackPreferences.fromJson(Map<String, dynamic> value) {
@@ -85,11 +94,14 @@ class PlaybackPreferences {
     final danmakuFontScale =
         (value['danmakuFontScale'] as num? ?? 1).toDouble();
     final danmakuRows = value['danmakuRows'] as int? ?? 4;
+    final danmakuSpeedScale =
+        (value['danmakuSpeedScale'] as num? ?? 1).toDouble();
     if (!playbackSpeeds.contains(speed) ||
         quality < 0 ||
         quality > 4320 ||
         !danmakuFontScales.contains(danmakuFontScale) ||
-        !danmakuRowsOptions.contains(danmakuRows)) {
+        !danmakuRowsOptions.contains(danmakuRows) ||
+        !danmakuSpeedScales.contains(danmakuSpeedScale)) {
       throw const FormatException('播放偏好无效');
     }
     return PlaybackPreferences(
@@ -107,6 +119,7 @@ class PlaybackPreferences {
       danmakuColorMode:
           DanmakuColorMode.values.asNameMap()[value['danmakuColorMode']] ??
           DanmakuColorMode.normal,
+      danmakuSpeedScale: danmakuSpeedScale,
     );
   }
 }
