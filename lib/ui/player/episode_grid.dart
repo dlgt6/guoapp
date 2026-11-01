@@ -27,6 +27,7 @@ class EpisodeGrid extends StatefulWidget {
     this.downloading = const {},
     this.minCellWidth,
     this.inset = 16,
+    this.initialFocus = false,
   });
   final List<Episode> episodes;
   final int current;
@@ -40,6 +41,7 @@ class EpisodeGrid extends StatefulWidget {
   final Set<int> downloading;
   final double? minCellWidth;
   final double inset;
+  final bool initialFocus;
 
   @override
   State<EpisodeGrid> createState() => _EpisodeGridState();
@@ -260,6 +262,9 @@ class _EpisodeGridState extends State<EpisodeGrid> {
                                 : widget.downloading.contains(index)
                                 ? Icons.arrow_downward_rounded
                                 : null,
+                            autofocus: widget.initialFocus &&
+                                !widget.touch &&
+                                index == widget.current,
                             onPressed: _locked(index)
                                 ? null
                                 : !selecting
@@ -330,6 +335,7 @@ class _EpisodeCell extends StatelessWidget {
     required this.selected,
     required this.onPressed,
     this.marker,
+    this.autofocus = false,
   });
   final Episode episode;
   final bool current;
@@ -337,6 +343,7 @@ class _EpisodeCell extends StatelessWidget {
   final bool? selected;
   final VoidCallback? onPressed;
   final IconData? marker;
+  final bool autofocus;
 
   @override
   Widget build(BuildContext context) {
@@ -375,6 +382,7 @@ class _EpisodeCell extends StatelessWidget {
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
+          autofocus: autofocus,
           onTap: onPressed,
           child: Stack(
             fit: StackFit.expand,

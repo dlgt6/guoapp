@@ -1380,7 +1380,12 @@ class _TelevisionEpisodesDialogState extends State<_TelevisionEpisodesDialog> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _close.requestFocus();
+      if (!mounted) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final scope = FocusScope.of(context);
+        if (!scope.hasPrimaryFocus) _close.requestFocus();
+      });
     });
   }
 
@@ -1466,6 +1471,7 @@ class _TelevisionEpisodesDialogState extends State<_TelevisionEpisodesDialog> {
                         selecting: false,
                         selected: const {},
                         touch: false,
+                        initialFocus: true,
                         onSelectionChanged: () {},
                         onPick: (index) {
                           Navigator.of(context).pop();
