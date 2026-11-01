@@ -212,23 +212,29 @@ class SearchPageState extends State<SearchPage> {
                         selected: _aggregateTab == tab.id,
                         selectedTileColor: theme.colorScheme.primaryContainer
                             .withValues(alpha: 0.6),
-                        title: Text(
-                          tab.label,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: _aggregateTab == tab.id
-                                ? FontWeight.bold
-                                : FontWeight.normal,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        trailing: Text(
-                          '${tab.count}',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
+                        title: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              tab.label,
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: _aggregateTab == tab.id
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              '${tab.count}',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
                         ),
                         onTap: () =>
                             setState(() => _aggregateTab = tab.id),
