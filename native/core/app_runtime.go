@@ -38,6 +38,8 @@ type Config struct {
 	HmjcURL          string
 	QimaoURL         string
 	XifanURL         string
+	QmplayletURL     string
+	XyduanjuURL      string
 	Token            string
 	AESKeyHex        string
 	InterfaceKey     string
@@ -583,6 +585,28 @@ func (engine *nativeEngine) nativeCatalog(ctx context.Context, input nativeInput
 		result.HasMore = more
 		return result, nil
 	}
+	if query != "" && source == sourceQmplaylet {
+		items, more, err := d.fetchQmplayletCatalogPage(ctx, page, "", query)
+		if err != nil {
+			return result, err
+		}
+		for _, drama := range items {
+			result.Items = append(result.Items, nativeNormalize(drama))
+		}
+		result.HasMore = more
+		return result, nil
+	}
+	if query != "" && source == sourceXyduanju {
+		items, more, err := d.fetchXyduanjuCatalogPage(ctx, page, "", query)
+		if err != nil {
+			return result, err
+		}
+		for _, drama := range items {
+			result.Items = append(result.Items, nativeNormalize(drama))
+		}
+		result.HasMore = more
+		return result, nil
+	}
 	if query != "" && (source == sourceYeguo || source == sourceDSD) {
 		var items []Drama
 		var more bool
@@ -689,6 +713,10 @@ func (engine *nativeEngine) nativeCatalog(ctx context.Context, input nativeInput
 		items, result.HasMore, err = d.fetchQimaoCatalogPage(ctx, page, category, "")
 	case sourceXifan:
 		items, result.HasMore, err = d.fetchXifanCatalogPage(ctx, page, category, "")
+	case sourceQmplaylet:
+		items, result.HasMore, err = d.fetchQmplayletCatalogPage(ctx, page, category, "")
+	case sourceXyduanju:
+		items, result.HasMore, err = d.fetchXyduanjuCatalogPage(ctx, page, category, "")
 	case sourceHuangguoVideo:
 		address := fmt.Sprintf("%s/videos?page=%d", d.providerBaseURL(source), page)
 		if category != "" {
@@ -706,7 +734,7 @@ func (engine *nativeEngine) nativeCatalog(ctx context.Context, input nativeInput
 	if err != nil && len(items) == 0 {
 		return result, err
 	}
-	if len(items) == 0 && page == 1 && source != sourceHuangju && source != sourceYeguo && source != sourceDSD && source != sourceSorani && source != sourceGuipian && source != sourceHanxiaoquan && source != sourceHmjc && source != sourceQimao && source != sourceXifan {
+	if len(items) == 0 && page == 1 && source != sourceHuangju && source != sourceYeguo && source != sourceDSD && source != sourceSorani && source != sourceGuipian && source != sourceHanxiaoquan && source != sourceHmjc && source != sourceQimao && source != sourceXifan && source != sourceQmplaylet && source != sourceXyduanju {
 		return result, errors.New("站源暂未返回剧集，请稍后刷新")
 	}
 	if err != nil {
@@ -758,6 +786,10 @@ func (engine *nativeEngine) nativeDetail(ctx context.Context, drama nativeDrama)
 		raw, chapters, err = engine.downloader.fetchQimaoDetail(ctx, sourceID)
 	case sourceXifan:
 		raw, chapters, err = engine.downloader.fetchXifanDetail(ctx, sourceID)
+	case sourceQmplaylet:
+		raw, chapters, err = engine.downloader.fetchQmplayletDetail(ctx, sourceID)
+	case sourceXyduanju:
+		raw, chapters, err = engine.downloader.fetchXyduanjuDetail(ctx, sourceID)
 	default:
 		title, chapters, err = engine.downloader.GetHuangguoChapters(ctx, source, sourceID)
 	}

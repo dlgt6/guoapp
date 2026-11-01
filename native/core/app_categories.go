@@ -76,6 +76,10 @@ func validNativeCategory(source, category string) bool {
 		return validQimaoCategory(category)
 	case sourceXifan:
 		return validXifanCategory(category)
+	case sourceQmplaylet:
+		return validQmplayletCategory(category)
+	case sourceXyduanju:
+		return validXyduanjuCategory(category)
 	}
 	return false
 }
@@ -156,6 +160,14 @@ func (engine *nativeEngine) nativeCategories(ctx context.Context, source string,
 		if err == nil {
 			all = append(all, categories...)
 		}
+	case sourceQmplaylet:
+		var categories []nativeCategory
+		categories, err = d.fetchQmplayletCategories(ctx)
+		if err == nil {
+			all = append(all, categories...)
+		}
+	case sourceXyduanju:
+		all = append(all, d.fetchXyduanjuCategories()...)
 	default:
 		return nil, errors.New("请选择有效站源")
 	}

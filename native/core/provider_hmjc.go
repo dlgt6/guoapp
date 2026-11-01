@@ -376,7 +376,7 @@ func hmjcDramaFromRow(row map[string]any, category string) (Drama, bool) {
 		Name:         truncate(title, 512),
 		Cover:        cover,
 		CoverURL:     cover,
-		ChannelName:  "河马剧场",
+		ChannelName:  "河马",
 		CategoryName: category,
 		Remark:       truncate(remark, 64),
 	}, true

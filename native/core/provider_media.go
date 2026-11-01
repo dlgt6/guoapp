@@ -51,6 +51,10 @@ func (d *Downloader) providerBaseURL(source string) string {
 		configured, fallback = d.cfg.QimaoURL, qimaoSiteBaseURL
 	case sourceXifan:
 		configured, fallback = d.cfg.XifanURL, xifanSiteBaseURL
+	case sourceQmplaylet:
+		configured, fallback = d.cfg.QmplayletURL, qmplayletStoreURL
+	case sourceXyduanju:
+		configured, fallback = d.cfg.XyduanjuURL, xyduanjuSiteURL
 	default:
 		fallback = "https://d2pypzndaqisk.cloudfront.net"
 	}
@@ -93,6 +97,10 @@ func providerSourceForURL(raw string) string {
 		return sourceQimao
 	case host == "xifan-api-cn.youlishipin.com":
 		return sourceXifan
+	case host == "api-store.qmplaylet.com" || host == "api-read.qmplaylet.com":
+		return sourceQmplaylet
+	case host == "app.whjzjx.cn" || host == "u.shytkjgs.com":
+		return sourceXyduanju
 	default:
 		return ""
 	}
@@ -162,6 +170,12 @@ func (d *Downloader) resolveProviderMedia(ctx context.Context, task Task) (provi
 	}
 	if chapter.Source == sourceXifan {
 		return d.resolveXifanMedia(ctx, task)
+	}
+	if chapter.Source == sourceQmplaylet {
+		return d.resolveQmplayletMedia(ctx, task)
+	}
+	if chapter.Source == sourceXyduanju {
+		return d.resolveXyduanjuMedia(ctx, task)
 	}
 	if strings.HasPrefix(chapter.VideoURL, "hongguo-cenc://") {
 		return d.resolveHongguoMedia(ctx, task)
