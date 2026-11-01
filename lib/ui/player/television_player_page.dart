@@ -1200,19 +1200,18 @@ class _TelevisionDanmakuDialogState extends State<_TelevisionDanmakuDialog> {
     );
     var chipIndex = 0;
     return FocusTraversalGroup(
-      child: FocusScope(
-        autofocus: true,
-        child: Focus(
-          onKeyEvent: (node, event) {
-            if (event is! KeyDownEvent) return KeyEventResult.ignored;
-            final key = event.logicalKey;
-            if (key == LogicalKeyboardKey.escape) {
-              Navigator.of(context).pop();
-              return KeyEventResult.handled;
-            }
-            return KeyEventResult.ignored;
-          },
-          child: AlertDialog(
+      child: Focus(
+        canRequestFocus: false,
+        onKeyEvent: (node, event) {
+          if (event is! KeyDownEvent) return KeyEventResult.ignored;
+          final key = event.logicalKey;
+          if (key == LogicalKeyboardKey.escape) {
+            Navigator.of(context).pop();
+            return KeyEventResult.handled;
+          }
+          return KeyEventResult.ignored;
+        },
+        child: AlertDialog(
           title: const Text('弹幕设置'),
           content: SizedBox(
             width: 520,
@@ -1359,7 +1358,7 @@ class _TelevisionDanmakuDialogState extends State<_TelevisionDanmakuDialog> {
         ),
       ],
         ),
-        ),
+
       ),
     );
   }
@@ -1378,6 +1377,14 @@ class _TelevisionEpisodesDialogState extends State<_TelevisionEpisodesDialog> {
   final _close = FocusNode(debugLabel: 'tv-episodes-close');
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _close.requestFocus();
+    });
+  }
+
+  @override
   void dispose() {
     _close.dispose();
     super.dispose();
@@ -1388,18 +1395,17 @@ class _TelevisionEpisodesDialogState extends State<_TelevisionEpisodesDialog> {
     final colors = Theme.of(context).colorScheme;
     final session = widget.session;
     return FocusTraversalGroup(
-      child: FocusScope(
-        autofocus: true,
-        child: Focus(
-          onKeyEvent: (node, event) {
-            if (event is! KeyDownEvent) return KeyEventResult.ignored;
-            if (event.logicalKey == LogicalKeyboardKey.escape) {
-              Navigator.of(context).pop();
-              return KeyEventResult.handled;
-            }
-            return KeyEventResult.ignored;
-          },
-          child: Dialog(
+      child: Focus(
+        canRequestFocus: false,
+        onKeyEvent: (node, event) {
+          if (event is! KeyDownEvent) return KeyEventResult.ignored;
+          if (event.logicalKey == LogicalKeyboardKey.escape) {
+            Navigator.of(context).pop();
+            return KeyEventResult.handled;
+          }
+          return KeyEventResult.ignored;
+        },
+        child: Dialog(
           insetPadding: const EdgeInsets.symmetric(
             horizontal: 120,
             vertical: 80,
@@ -1476,7 +1482,7 @@ class _TelevisionEpisodesDialogState extends State<_TelevisionEpisodesDialog> {
           ),
         ),
       ),
-      ),
+
     );
   }
 }
