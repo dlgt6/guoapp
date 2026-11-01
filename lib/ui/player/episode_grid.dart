@@ -70,17 +70,7 @@ class _EpisodeGridState extends State<EpisodeGrid> {
   @override
   void initState() {
     super.initState();
-    if (widget.initialFocus && !widget.touch) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted && !_initialFocused) {
-            _initialFocused = true;
-            _currentFocus.requestFocus();
-          }
-        });
-      });
-    }
+
   }
 
   @override
@@ -250,6 +240,15 @@ class _EpisodeGridState extends State<EpisodeGrid> {
         WidgetsBinding.instance.addPostFrameCallback(
           (_) => _reveal(animate: animate),
         );
+      }
+      if (widget.initialFocus && !widget.touch && !_initialFocused) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || _initialFocused) return;
+          if (_currentFocus.context != null) {
+            _initialFocused = true;
+            _currentFocus.requestFocus();
+          }
+        });
       }
       final selecting = widget.selecting;
       final rows = SliverFixedExtentList(

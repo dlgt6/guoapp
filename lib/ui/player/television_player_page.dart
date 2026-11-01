@@ -1379,17 +1379,7 @@ class _TelevisionEpisodesDialogState extends State<_TelevisionEpisodesDialog> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          final scope = FocusScope.of(context);
-          if (!scope.hasPrimaryFocus) _close.requestFocus();
-        });
-      });
-    });
+
   }
 
   @override
