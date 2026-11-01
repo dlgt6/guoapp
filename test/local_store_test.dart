@@ -80,6 +80,7 @@ void main() {
         'catalogView',
         'recentSearches',
         'pinyinSearch',
+        'aggregateSearch',
       });
     });
 
