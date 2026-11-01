@@ -50,6 +50,7 @@ class EpisodeGrid extends StatefulWidget {
 class _EpisodeGridState extends State<EpisodeGrid> {
   final _scroll = ScrollController();
   final _headerKey = GlobalKey();
+  final _currentFocus = FocusNode(debugLabel: 'episode-current');
   bool? _dragAdds;
   int _dragAnchor = 0;
   Set<int> _dragBase = const {};
@@ -59,11 +60,28 @@ class _EpisodeGridState extends State<EpisodeGrid> {
   double _gridHeight = 0;
   int _columns = 5;
   int _revealed = -1;
+  bool _initialFocused = false;
 
   List<Episode> get _episodes => widget.episodes;
   Set<int> get _selected => widget.selected;
   bool _locked(int index) =>
       widget.downloaded.contains(index) || widget.downloading.contains(index);
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialFocus && !widget.touch) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && !_initialFocused) {
+            _initialFocused = true;
+            _currentFocus.requestFocus();
+          }
+        });
+      });
+    }
+  }
 
   @override
   void didUpdateWidget(EpisodeGrid oldWidget) {
@@ -75,6 +93,7 @@ class _EpisodeGridState extends State<EpisodeGrid> {
   void dispose() {
     _autoScroll?.cancel();
     _scroll.dispose();
+    _currentFocus.dispose();
     super.dispose();
   }
 
@@ -262,9 +281,11 @@ class _EpisodeGridState extends State<EpisodeGrid> {
                                 : widget.downloading.contains(index)
                                 ? Icons.arrow_downward_rounded
                                 : null,
-                            autofocus: widget.initialFocus &&
-                                !widget.touch &&
-                                index == widget.current,
+                            focusNode: widget.initialFocus &&
+                                    !widget.touch &&
+                                    index == widget.current
+                                ? _currentFocus
+                                : null,
                             onPressed: _locked(index)
                                 ? null
                                 : !selecting
@@ -335,7 +356,7 @@ class _EpisodeCell extends StatelessWidget {
     required this.selected,
     required this.onPressed,
     this.marker,
-    this.autofocus = false,
+    this.focusNode,
   });
   final Episode episode;
   final bool current;
@@ -343,7 +364,7 @@ class _EpisodeCell extends StatelessWidget {
   final bool? selected;
   final VoidCallback? onPressed;
   final IconData? marker;
-  final bool autofocus;
+  final FocusNode? focusNode;
 
   @override
   Widget build(BuildContext context) {
@@ -382,7 +403,7 @@ class _EpisodeCell extends StatelessWidget {
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
-          autofocus: autofocus,
+          focusNode: focusNode,
           onTap: onPressed,
           child: Stack(
             fit: StackFit.expand,
