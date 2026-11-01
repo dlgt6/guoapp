@@ -95,8 +95,12 @@ class SearchPageState extends State<SearchPage> {
     _suggestion++;
     unawaited(widget.store.rememberSearch(target).catchError((Object _) {}));
     _results?.dispose();
+    final aggregate = widget.store.aggregateSearch;
     final results = _results = DramaFeed(
-      load: (page, _) => _catalog.search(target, page: page),
+      load: aggregate
+          ? (page, _) =>
+              _catalog.aggregateSearch(widget.store.sources, target, page: page)
+          : (page, _) => _catalog.search(target, page: page),
     )..addListener(() => setState(() {}));
     unawaited(results.reload());
     setState(() {
@@ -155,10 +159,15 @@ class SearchPageState extends State<SearchPage> {
     listenable: widget.store,
     builder: (context, _) {
       final pinyin = widget.store.pinyinSearch;
+      final aggregate = widget.store.aggregateSearch;
       final television = AppScope.of(context).television;
       if (television && pinyin) return _televisionPinyin(context);
       final field = SearchField(
-        hint: pinyin ? '输入拼音首字母搜索' : '在 ${widget.source.name} 中搜索',
+        hint: pinyin
+            ? '输入拼音首字母搜索'
+            : aggregate
+            ? '在全部站源中搜索'
+            : '在 ${widget.source.name} 中搜索',
         controller: _controller,
         focusNode: _focus,
         autofocus: widget.query.isEmpty,
@@ -347,6 +356,9 @@ class SearchPageState extends State<SearchPage> {
                 items: results.items,
                 autofocus: television,
                 onOpen: _open,
+                subtitleOf: widget.store.aggregateSearch
+                    ? (drama) => SourceSite.byId(drama.source).name
+                    : null,
               ),
             ),
             SliverPadding(
@@ -370,7 +382,9 @@ class SearchPageState extends State<SearchPage> {
       final recent = widget.store.recentSearches;
       if (recent.isEmpty) {
         return StatusView(
-          title: '在 ${widget.source.name} 中搜索',
+          title: widget.store.aggregateSearch
+              ? '在全部站源中搜索'
+              : '在 ${widget.source.name} 中搜索',
           message: '输入剧名或关键词',
           icon: Icons.search_rounded,
         );
