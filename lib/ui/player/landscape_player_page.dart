@@ -16,20 +16,21 @@ import '../theme/app_theme.dart';
 import '../theme/motion.dart';
 import '../widgets/contained_slider.dart';
 import '../widgets/motion/motion_widgets.dart';
+import 'cast_page.dart';
 import 'danmaku_overlay.dart';
-import '../widgets/status_view.dart';
 import '../widgets/follow_button.dart';
 import 'episode_grid.dart';
 import 'mini_player.dart';
 import 'playback_handle.dart';
 import 'playback_sheets.dart';
+import 'player_status.dart';
 import 'fade_presence.dart';
 import 'player_surface.dart';
 import 'player_video.dart';
 import 'swipe_controls.dart';
 import 'window_fullscreen.dart';
 
-enum _Panel { episodes, settings, speed, quality }
+enum _Panel { episodes, settings, speed, quality, fit }
 
 class LandscapePlayerPage extends StatefulWidget {
   const LandscapePlayerPage({
@@ -38,10 +39,12 @@ class LandscapePlayerPage extends StatefulWidget {
     required this.handle,
     this.onFullscreen,
     this.onMiniWindow,
+    this.followSensor = true,
   });
   final LocalStore store;
   final PlaybackHandle handle;
   final VoidCallback? onFullscreen;
+  final bool followSensor;
   final VoidCallback? onMiniWindow;
 
   @override
@@ -49,10 +52,15 @@ class LandscapePlayerPage extends StatefulWidget {
 }
 
 class _LandscapePlayerPageState extends State<LandscapePlayerPage>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   final List<StreamSubscription<dynamic>> _subscriptions = [];
+  late final _tabs = TabController(length: 2, initialIndex: 1, vsync: this);
   final _selected = <int>{};
-  final _links = {_Panel.speed: LayerLink(), _Panel.quality: LayerLink()};
+  final _links = {
+    _Panel.speed: LayerLink(),
+    _Panel.quality: LayerLink(),
+    _Panel.fit: LayerLink(),
+  };
   Player? _bound;
   Timer? _hideTimer;
   Timer? _tapTimer;
@@ -68,7 +76,6 @@ class _LandscapePlayerPageState extends State<LandscapePlayerPage>
   double? _seekTarget;
   int _streak = 0;
   int _streakTaps = 0;
-  int _tab = 1;
   _Panel? _panel;
   int _sidePanelMount = 0;
   bool _sidePanelShown = false;
@@ -81,13 +88,19 @@ class _LandscapePlayerPageState extends State<LandscapePlayerPage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    if (widget.onFullscreen == null) {
+    if (widget.onFullscreen == null && widget.followSensor) {
       unawaited(AppDevice.setPlayerOrientation(PlayerOrientation.auto));
     }
     _session.addListener(_bind);
+    _tabs.addListener(_tabChanged);
     _bind();
     _scheduleHide();
   }
+
+  void _tabChanged() => setState(() {
+    _selecting = false;
+    _selected.clear();
+  });
 
   @override
   void didChangeDependencies() {
@@ -123,6 +136,7 @@ class _LandscapePlayerPageState extends State<LandscapePlayerPage>
     _streakTimer?.cancel();
     _clockTimer?.cancel();
     _seekTimer?.cancel();
+    _tabs.dispose();
     if (_holding) _session.endBoost();
     if (widget.onFullscreen == null) {
       if (_full == true && desktopPlatform) {
@@ -432,16 +446,19 @@ class _LandscapePlayerPageState extends State<LandscapePlayerPage>
           key: ValueKey(session.player),
           handle: widget.handle,
           player: session.player,
+          fit: session.videoFit,
         ),
         DanmakuOverlay(
           controller: session.danmaku,
-          aspectRatio: session.aspectRatio,
+          video: session.videoSize,
+          fit: session.videoFit,
           style: session.danmakuStyle,
         ),
         SwipeControls(
           session: session,
           enabled: full,
           levels: session.store.playbackPreferences.swipeLevels,
+          episodes: session.store.playbackPreferences.swipeEpisodes,
           child: LayoutBuilder(
             builder: (context, constraints) => GestureDetector(
               behavior: HitTestBehavior.opaque,
@@ -486,7 +503,7 @@ class _LandscapePlayerPageState extends State<LandscapePlayerPage>
             ),
           ),
         ),
-        if (full && !visible)
+        if (full && !visible && session.store.playbackPreferences.progressLine)
           Positioned(
             left: 0,
             right: 0,
@@ -641,6 +658,7 @@ class _LandscapePlayerPageState extends State<LandscapePlayerPage>
 
   Widget _fullControls(BuildContext context) {
     final session = _session;
+    final preferences = session.store.playbackPreferences;
     final padding = MediaQuery.viewPaddingOf(context);
     final left = math.max(padding.left, 20.0);
     final right = math.max(padding.right, 20.0);
@@ -706,19 +724,31 @@ class _LandscapePlayerPageState extends State<LandscapePlayerPage>
                 extent: 44,
               ),
               const SizedBox(width: 8),
+              if (preferences.showNetworkSpeed) ...[
+                NetworkSpeedText(
+                  session: session,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: .78),
+                    fontSize: 12,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+                const SizedBox(width: 12),
+              ],
               if (_battery case final battery?) ...[
                 _batteryMark(battery),
                 const SizedBox(width: 12),
               ],
-              Text(
-                '${_two(_now.hour)}:${_two(_now.minute)}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  fontFeatures: [FontFeature.tabularFigures()],
+              if (preferences.showClock)
+                Text(
+                  '${_two(_now.hour)}:${_two(_now.minute)}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    fontFeatures: [FontFeature.tabularFigures()],
+                  ),
                 ),
-              ),
               const SizedBox(width: 4),
               if (session.danmakuSupported) _danmakuButton(context),
               if (widget.onMiniWindow case final onMiniWindow?)
@@ -787,6 +817,17 @@ class _LandscapePlayerPageState extends State<LandscapePlayerPage>
                   '倍速',
                   ready ? () => _openPanel(_Panel.speed) : null,
                   bold: true,
+                ),
+              ),
+              CompositedTransformTarget(
+                link: _links[_Panel.fit]!,
+                child: _icon(
+                  Icons.aspect_ratio_rounded,
+                  '画面比例 · ${session.videoFit.label}',
+                  () => _openPanel(_Panel.fit),
+                  color: session.videoFit == VideoFit.auto
+                      ? null
+                      : Theme.of(context).colorScheme.primary,
                 ),
               ),
               _icon(Icons.fullscreen_exit_rounded, '退出全屏', () => _rotate(true)),
@@ -1016,14 +1057,14 @@ class _LandscapePlayerPageState extends State<LandscapePlayerPage>
       color: Colors.black.withValues(alpha: .5),
       borderRadius: BorderRadius.circular(16),
     ),
-    child: const Row(
+    child: Row(
       mainAxisSize: MainAxisSize.min,
       spacing: 6,
       children: [
-        Icon(Icons.fast_forward_rounded, size: 16, color: Colors.white),
+        const Icon(Icons.fast_forward_rounded, size: 16, color: Colors.white),
         Text(
-          '2 倍速播放中',
-          style: TextStyle(
+          '${_session.store.playbackPreferences.boostLabel}播放中',
+          style: const TextStyle(
             color: Colors.white,
             fontSize: 14,
             fontWeight: FontWeight.w600,
@@ -1144,9 +1185,13 @@ class _LandscapePlayerPageState extends State<LandscapePlayerPage>
                         }
                       },
                     )
-                  : const StatusView(
-                      title: '「播放设置」正在重建',
-                      icon: Icons.settings_rounded,
+                  : PlaybackSettingsList(
+                      session: session,
+                      onFailure: _saveFailed,
+                      onCast: () {
+                        _closePanel();
+                        unawaited(startCast(context, session));
+                      },
                     ),
             ),
           ],
@@ -1162,19 +1207,26 @@ class _LandscapePlayerPageState extends State<LandscapePlayerPage>
       borderRadius: BorderRadius.circular(12),
       child: Padding(
         padding: const EdgeInsets.all(6),
-        child: panel == _Panel.speed
-            ? _options<double>(
-                values: playbackSpeeds.reversed.toList(),
-                selected: session.speed,
-                label: (value) => '${value}x',
-                onSelected: (value) => _change(() => session.setSpeed(value)),
-              )
-            : _options<int>(
-                values: [...session.qualities, 0],
-                selected: session.quality,
-                label: (value) => value == 0 ? '自动' : '${value}P',
-                onSelected: (value) => _change(() => session.setQuality(value)),
-              ),
+        child: switch (panel) {
+          _Panel.speed => _options<double>(
+            values: playbackSpeeds.reversed.toList(),
+            selected: session.speed,
+            label: (value) => '${value}x',
+            onSelected: (value) => _change(() => session.setSpeed(value)),
+          ),
+          _Panel.fit => _options<VideoFit>(
+            values: VideoFit.values,
+            selected: session.videoFit,
+            label: (value) => value.label,
+            onSelected: (value) => _change(() => session.setVideoFit(value)),
+          ),
+          _ => _options<int>(
+            values: [...session.qualities, 0],
+            selected: session.quality,
+            label: (value) => value == 0 ? '自动' : '${value}P',
+            onSelected: (value) => _change(() => session.setQuality(value)),
+          ),
+        },
       ),
     );
   }
@@ -1232,16 +1284,52 @@ class _LandscapePlayerPageState extends State<LandscapePlayerPage>
             ),
             child: SizedBox(
               height: 48,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+              child: Stack(
+                fit: StackFit.expand,
                 children: [
-                  for (final (index, label) in const ['简介', '选集'].indexed)
-                    Expanded(child: _tabButton(context, index, label)),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (final (index, label) in const ['简介', '选集'].indexed)
+                        Expanded(child: _tabButton(context, index, label)),
+                    ],
+                  ),
+                  IgnorePointer(
+                    child: AnimatedBuilder(
+                      animation: _tabs.animation!,
+                      builder: (context, child) => Align(
+                        alignment: Alignment(_tabs.animation!.value * 2 - 1, 1),
+                        child: child,
+                      ),
+                      child: FractionallySizedBox(
+                        widthFactor: .5,
+                        child: Center(
+                          heightFactor: 1,
+                          child: Container(
+                            width: 32,
+                            height: 3,
+                            decoration: BoxDecoration(
+                              color: colors.primary,
+                              borderRadius: const BorderRadius.vertical(
+                                top: Radius.circular(3),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
           ),
-          Expanded(child: _tab == 0 ? _intro(context) : _episodes(context)),
+          Expanded(
+            child: TabBarView(
+              controller: _tabs,
+              physics: _selecting ? const NeverScrollableScrollPhysics() : null,
+              children: [_intro(context), _episodes(context)],
+            ),
+          ),
         ],
       ),
     );
@@ -1249,41 +1337,27 @@ class _LandscapePlayerPageState extends State<LandscapePlayerPage>
 
   Widget _tabButton(BuildContext context, int index, String label) {
     final colors = Theme.of(context).colorScheme;
-    final selected = _tab == index;
+    final selected = _tabs.index == index;
     return Semantics(
       selected: selected,
       child: InkWell(
-        onTap: () => setState(() {
-          _tab = index;
-          _selecting = false;
-          _selected.clear();
-        }),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                color: selected ? colors.primary : colors.onSurfaceVariant,
-              ),
+        onTap: () {
+          if (_selecting) _select(false);
+          _tabs.animateTo(
+            index,
+            duration: Motion.of(context, Motion.long),
+            curve: Motion.standard,
+          );
+        },
+        child: Center(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              color: selected ? colors.primary : colors.onSurfaceVariant,
             ),
-            if (selected)
-              Positioned(
-                bottom: 0,
-                child: Container(
-                  width: 32,
-                  height: 3,
-                  decoration: BoxDecoration(
-                    color: colors.primary,
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(3),
-                    ),
-                  ),
-                ),
-              ),
-          ],
+          ),
         ),
       ),
     );

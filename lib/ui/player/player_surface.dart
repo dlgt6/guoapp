@@ -11,9 +11,12 @@ import '../settings/sorani_account_view.dart';
 import '../theme/motion.dart';
 import '../widgets/contained_slider.dart';
 import '../widgets/motion/motion_widgets.dart';
+import 'cast_page.dart';
 import 'danmaku_overlay.dart';
 import 'fade_presence.dart';
 import 'playback_handle.dart';
+import 'playback_sheets.dart';
+import 'player_status.dart';
 import 'player_video.dart';
 import 'swipe_controls.dart';
 
@@ -24,7 +27,7 @@ String formatClock(Duration value) {
   return seconds >= 3600 ? '${seconds ~/ 3600}:$clock' : clock;
 }
 
-enum _Popup { quality, speed, volume }
+enum _Popup { quality, speed, fit, sleep, volume }
 
 class PlayerSurface extends StatefulWidget {
   const PlayerSurface({
@@ -315,10 +318,12 @@ class _PlayerSurfaceState extends State<PlayerSurface> {
               key: ValueKey(_session.player),
               handle: widget.handle,
               player: _session.player,
+              fit: _session.videoFit,
             ),
             DanmakuOverlay(
               controller: _session.danmaku,
-              aspectRatio: _session.aspectRatio,
+              video: _session.videoSize,
+              fit: _session.videoFit,
               style: _session.danmakuStyle,
             ),
             if (widget.touch)
@@ -326,6 +331,7 @@ class _PlayerSurfaceState extends State<PlayerSurface> {
                 session: _session,
                 enabled: widget.fullscreen,
                 levels: _session.store.playbackPreferences.swipeLevels,
+                episodes: _session.store.playbackPreferences.swipeEpisodes,
                 child: LayoutBuilder(
                   builder: (context, constraints) => GestureDetector(
                     behavior: HitTestBehavior.opaque,
@@ -591,17 +597,101 @@ class _PlayerSurfaceState extends State<PlayerSurface> {
           right: 12,
           bottom: 10,
           height: 48,
-          child: _toolbar(context, position),
+          child: LayoutBuilder(
+            builder: (context, constraints) =>
+                _toolbar(context, position, constraints.maxWidth),
+          ),
         ),
+        if (widget.fullscreen &&
+            (_session.preferences.showClock ||
+                _session.preferences.showNetworkSpeed))
+          Positioned(
+            top: 12,
+            right: 20,
+            child: IgnorePointer(
+              child: Row(
+                spacing: 12,
+                children: [
+                  if (_session.preferences.showNetworkSpeed)
+                    NetworkSpeedText(session: _session, style: _statusStyle),
+                  if (_session.preferences.showClock)
+                    const ClockText(style: _statusStyle),
+                ],
+              ),
+            ),
+          ),
       ],
     );
   }
 
-  Widget _toolbar(BuildContext context, double position) {
+  static const _statusStyle = TextStyle(
+    color: Colors.white,
+    fontSize: 13,
+    fontWeight: FontWeight.w600,
+    fontFeatures: [FontFeature.tabularFigures()],
+    shadows: [Shadow(color: Color(0x99000000), blurRadius: 3)],
+  );
+
+  static const _iconSlot = 48.0;
+
+  static TextStyle _textButtonStyle(bool bold) => TextStyle(
+    fontSize: 14,
+    fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
+  );
+
+  double _textWidth(String text, TextStyle style) {
+    final painter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: DefaultTextStyle.of(context).style.merge(style),
+      ),
+      textDirection: TextDirection.ltr,
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 1,
+    )..layout();
+    final width = painter.width;
+    painter.dispose();
+    return width.ceilToDouble();
+  }
+
+  double _textSlot(String text, {bool bold = false}) {
+    final width = _textWidth(text, _textButtonStyle(bold)) + 28;
+    return width < 64 ? 64 : width;
+  }
+
+  Widget _toolbar(BuildContext context, double position, double width) {
     final colors = Theme.of(context).colorScheme;
     final state = _session.player.state;
     final playing = state.playing;
     final ready = _session.ready;
+    final sleeping = _session.sleepAt != null || _session.sleepAtEpisodeEnd;
+    final clock =
+        '${formatClock(Duration(milliseconds: position.round()))} / ${formatClock(state.duration)}';
+    final clockStyle = TextStyle(
+      fontSize: 13,
+      color: Colors.white.withValues(alpha: .86),
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    final speed = '${_session.speed}x';
+    var room = width - _iconSlot * 4 - 8 - _textWidth(clock, clockStyle);
+    bool fits(double slot) {
+      if (room < slot) {
+        room = 0;
+        return false;
+      }
+      room -= slot;
+      return true;
+    }
+
+    final showSpeed = fits(_textSlot(speed, bold: true));
+    final showQuality = fits(_textSlot(_session.qualityLabel));
+    final showWide = !widget.touch && !widget.fullscreen && fits(_iconSlot);
+    final showDanmaku = _session.danmakuSupported && fits(_iconSlot + 4);
+    final showVolume = !widget.touch && fits(_iconSlot);
+    final showFit = fits(_iconSlot);
+    final showMiniWindow = widget.onMiniWindow != null && fits(_iconSlot);
+    final showSleep = fits(_iconSlot);
+    final showCast = castSupported && fits(_iconSlot);
     return Row(
       children: [
         _icon(
@@ -622,16 +712,8 @@ class _PlayerSurfaceState extends State<PlayerSurface> {
           _session.hasNext ? () => unawaited(_session.next()) : null,
         ),
         const SizedBox(width: 8),
-        Text(
-          '${formatClock(Duration(milliseconds: position.round()))} / ${formatClock(state.duration)}',
-          maxLines: 1,
-          style: TextStyle(
-            fontSize: 13,
-            color: Colors.white.withValues(alpha: .86),
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
-        ),
-        if (_session.danmakuSupported) ...[
+        Text(clock, maxLines: 1, style: clockStyle),
+        if (showDanmaku) ...[
           const SizedBox(width: 4),
           _icon(
             _session.danmakuEnabled
@@ -643,24 +725,46 @@ class _PlayerSurfaceState extends State<PlayerSurface> {
           ),
         ],
         const Spacer(),
-        _popupTarget(
-          _Popup.quality,
-          _text(
-            _session.qualityLabel,
-            '清晰度',
-            ready && !_session.local ? () => _open(_Popup.quality) : null,
+        if (showQuality)
+          _popupTarget(
+            _Popup.quality,
+            _text(
+              _session.qualityLabel,
+              '清晰度',
+              ready && !_session.local ? () => _open(_Popup.quality) : null,
+            ),
           ),
-        ),
-        _popupTarget(
-          _Popup.speed,
-          _text(
-            '${_session.speed}x',
-            '倍速',
-            ready ? () => _open(_Popup.speed) : null,
-            bold: true,
+        if (showSpeed)
+          _popupTarget(
+            _Popup.speed,
+            _text(
+              speed,
+              '倍速',
+              ready ? () => _open(_Popup.speed) : null,
+              bold: true,
+            ),
           ),
-        ),
-        if (!widget.touch)
+        if (showFit)
+          _popupTarget(
+            _Popup.fit,
+            _icon(
+              Icons.aspect_ratio_rounded,
+              '画面比例 · ${_session.videoFit.label}',
+              () => _open(_Popup.fit),
+              color: _session.videoFit == VideoFit.auto ? null : colors.primary,
+            ),
+          ),
+        if (showSleep)
+          _popupTarget(
+            _Popup.sleep,
+            _icon(
+              sleeping ? Icons.bedtime_rounded : Icons.bedtime_outlined,
+              sleepTimerLabel(_session),
+              () => _open(_Popup.sleep),
+              color: sleeping ? colors.primary : null,
+            ),
+          ),
+        if (showVolume)
           _popupTarget(
             _Popup.volume,
             _icon(
@@ -671,9 +775,18 @@ class _PlayerSurfaceState extends State<PlayerSurface> {
               () => _session.toggleMute(),
             ),
           ),
-        if (widget.onMiniWindow case final onMiniWindow?)
-          _icon(Icons.picture_in_picture_alt_rounded, '画中画', onMiniWindow),
-        if (!widget.touch && !widget.fullscreen)
+        if (showMiniWindow)
+          _icon(
+            Icons.picture_in_picture_alt_rounded,
+            '画中画',
+            widget.onMiniWindow,
+          ),
+        if (showCast)
+          _icon(Icons.cast_rounded, '投屏', () {
+            _close();
+            unawaited(startCast(context, _session));
+          }),
+        if (showWide)
           _icon(
             Icons.width_wide_rounded,
             widget.wide ? '退出宽屏' : '宽屏',
@@ -748,10 +861,7 @@ class _PlayerSurfaceState extends State<PlayerSurface> {
           foregroundColor: Colors.white,
           disabledForegroundColor: Colors.white.withValues(alpha: .6),
           overlayColor: Colors.transparent,
-          textStyle: TextStyle(
-            fontSize: 14,
-            fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
-          ),
+          textStyle: _textButtonStyle(bold),
         ),
         child: Text(text),
       ),
@@ -772,6 +882,20 @@ class _PlayerSurfaceState extends State<PlayerSurface> {
         selected: _session.quality,
         label: (value) => value == 0 ? '自动' : '${value}P',
         onSelected: (value) => _change(() => _session.setQuality(value)),
+      ),
+      _Popup.fit => _options<VideoFit>(
+        values: VideoFit.values,
+        selected: _session.videoFit,
+        label: (value) => value.label,
+        onSelected: (value) => _change(() => _session.setVideoFit(value)),
+      ),
+      _Popup.sleep => _options<SleepChoice>(
+        values: sleepChoices,
+        selected: sleepChoices.firstWhere(
+          (choice) => choice.selected(_session),
+        ),
+        label: (value) => value.label,
+        onSelected: (value) => _change(() async => value.apply(_session)),
       ),
     };
     return Material(

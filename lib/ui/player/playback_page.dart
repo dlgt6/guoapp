@@ -28,6 +28,7 @@ class PlaybackPage extends StatefulWidget {
 
 class _PlaybackPageState extends State<PlaybackPage> {
   final _padFullscreen = ValueNotifier(false);
+  bool _windowFullscreen = false;
   final _pageScope = FocusScopeNode(debugLabel: 'playbackPage');
   final _pip = PictureInPicture.instance;
   late bool _wideVideo = _measure();
@@ -151,6 +152,24 @@ class _PlaybackPageState extends State<PlaybackPage> {
     if (mounted) Navigator.pop(context);
   }
 
+  KeyEventResult _key(FocusNode _, KeyEvent event) {
+    final key = event.logicalKey;
+    final size = MediaQuery.sizeOf(context);
+    final form = AppScope.formFactorOf(context);
+    if (!desktopPlatform ||
+        form != FormFactor.window && form != FormFactor.pad ||
+        _padFullscreen.value ||
+        _windowFullscreen ||
+        size.width > size.height ||
+        key != LogicalKeyboardKey.f11 &&
+            key != LogicalKeyboardKey.enter &&
+            key != LogicalKeyboardKey.numpadEnter) {
+      return KeyEventResult.ignored;
+    }
+    if (event is KeyDownEvent) _padFullscreen.value = true;
+    return KeyEventResult.handled;
+  }
+
   void _padFullscreenChanged() {
     _applyPadFullscreen(_padFullscreen.value);
     setState(() {});
@@ -183,6 +202,8 @@ class _PlaybackPageState extends State<PlaybackPage> {
       children: [
         FocusScope(
           node: _pageScope,
+          autofocus: true,
+          onKeyEvent: _key,
           child: Offstage(
             offstage: shown,
             child: MediaQuery(
@@ -221,26 +242,39 @@ class _PlaybackPageState extends State<PlaybackPage> {
         ),
         FormFactor.pad => _padPage(context, mini),
         FormFactor.window
-            when _padFullscreen.value || size.width <= size.height =>
+            when !_windowFullscreen &&
+                (_padFullscreen.value || size.width <= size.height) =>
           _padPage(context, mini),
         FormFactor.window => PlayerPage(
           store: widget.store,
           handle: widget.handle,
+          onWindowFullscreen: (value) => _windowFullscreen = value,
           onMiniWindow: mini,
         ),
         FormFactor.television => TelevisionPlayerPage(handle: widget.handle),
       };
     }
+    final portraitStyle = widget.store.playbackPreferences.portraitStyleForWide;
     return switch (form) {
       FormFactor.pad || FormFactor.window => _padPage(context, mini),
-      FormFactor.phone when _wideVideo => LandscapePlayerPage(
-        store: widget.store,
-        handle: widget.handle,
-        onMiniWindow: mini,
-      ),
+      FormFactor.phone
+          when _wideVideo &&
+              !(portraitStyle &&
+                  MediaQuery.orientationOf(context) == Orientation.portrait) =>
+        LandscapePlayerPage(
+          store: widget.store,
+          handle: widget.handle,
+          followSensor: !portraitStyle,
+          onMiniWindow: mini,
+        ),
       FormFactor.phone => PortraitPlayerPage(
         store: widget.store,
         handle: widget.handle,
+        onFullscreen: _wideVideo
+            ? () => unawaited(
+                AppDevice.setPlayerOrientation(PlayerOrientation.landscape),
+              )
+            : null,
         onMiniWindow: mini,
       ),
       FormFactor.television => TelevisionPlayerPage(handle: widget.handle),
@@ -257,7 +291,8 @@ class _PlaybackPageState extends State<PlaybackPage> {
         onMiniWindow: mini,
       );
     }
-    return _wideVideo
+    final portraitStyle = widget.store.playbackPreferences.portraitStyleForWide;
+    return _wideVideo && !portraitStyle
         ? LandscapePlayerPage(
             store: widget.store,
             handle: widget.handle,
@@ -267,6 +302,7 @@ class _PlaybackPageState extends State<PlaybackPage> {
         : PortraitPlayerPage(
             store: widget.store,
             handle: widget.handle,
+            onFullscreen: _wideVideo ? () => _padFullscreen.value = true : null,
             onMiniWindow: mini,
           );
   }

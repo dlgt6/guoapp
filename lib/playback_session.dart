@@ -51,6 +51,7 @@ class PlaybackSession extends ChangeNotifier {
     _speed = preferences.speed;
     _quality = preferences.quality;
     _danmakuEnabled = preferences.danmaku;
+    _videoFit = preferences.videoFit;
     _unmutedVolume = store.playerVolume.clamp(1.0, 100.0);
     unawaited(_player.setVolume(_unmutedVolume));
     _loader = PlaybackLoader(repository);
@@ -85,10 +86,7 @@ class PlaybackSession extends ChangeNotifier {
     }
     _subscriptions.clear();
     final size = videoDisplaySize(player.state.videoParams);
-    if (size != null) {
-      _aspectRatio = size.width / size.height;
-      _aspectKnown = true;
-    }
+    if (size != null) _videoSize = size;
     _buffering(player.state.buffering);
     final stream = player.stream;
     _subscriptions.addAll([
@@ -113,16 +111,39 @@ class PlaybackSession extends ChangeNotifier {
       stream.videoParams.listen((parameters) {
         final size = videoDisplaySize(parameters);
         if (size == null || _closed) return;
-        _aspectRatio = size.width / size.height;
-        _aspectKnown = true;
+        _videoSize = size;
         _notify();
+        unawaited(_logVideoOutput(parameters));
       }),
     ]);
   }
 
+  String _videoOutput = '';
+
+  Future<void> _logVideoOutput(VideoParams parameters) async {
+    final platform = player.platform;
+    if (parameters.pixelformat == null || platform is! NativePlayer) return;
+    try {
+      final values = [
+        for (final name in [
+          'hwdec-current',
+          'current-vo',
+          'video-codec',
+          'container-fps',
+        ])
+          await platform.getProperty(name),
+      ];
+      final line =
+          '[Video] decoder=${store.playbackPreferences.televisionDecoder.name} hwdec=${values[0]} vo=${values[1]} codec=${values[2]} fps=${values[3]} format=${parameters.pixelformat} hw_format=${parameters.hwPixelformat} size=${parameters.w}x${parameters.h}';
+      if (_closed || line == _videoOutput) return;
+      _videoOutput = line;
+      DiaryService.add(line);
+    } catch (_) {}
+  }
+
   final AppRepository repository;
   final LocalStore store;
-  final DramaDetail detail;
+  DramaDetail detail;
   Player _player;
   Player? _standby;
   late final DanmakuController danmaku;
@@ -138,6 +159,11 @@ class PlaybackSession extends ChangeNotifier {
   Timer? _boostTimer;
   Timer? _stallTimer;
   Timer? _volumeTimer;
+  Timer? _sleepTimer;
+  DateTime? _sleepAt;
+  int _sleepMinutes = 0;
+  bool _sleepAtEpisodeEnd = false;
+  bool _advancingSeason = false;
   Future<void> _operations = Future<void>.value();
   Future<void> _rates = Future<void>.value();
   int _index;
@@ -172,8 +198,8 @@ class PlaybackSession extends ChangeNotifier {
   double _speed = 1;
   int _quality = 0;
   bool _danmakuEnabled = true;
-  double _aspectRatio = 9 / 16;
-  bool _aspectKnown = false;
+  Size? _videoSize;
+  VideoFit _videoFit = VideoFit.auto;
   double _resumePosition = 0;
   double _unmutedVolume = 100;
 
@@ -196,13 +222,21 @@ class PlaybackSession extends ChangeNotifier {
   bool get paused => !_playIntent;
   bool get boosting => _boosting;
   bool get boostLocked => _boostLocked;
-  double get aspectRatio => _aspectRatio;
-  bool get aspectKnown => _aspectKnown;
+  Size? get videoSize => _videoSize;
+  double get aspectRatio => switch (_videoSize) {
+    final size? => size.width / size.height,
+    null => 9 / 16,
+  };
+  bool get aspectKnown => _videoSize != null;
+  VideoFit get videoFit => _videoFit;
   double get speed => _speed;
+  DateTime? get sleepAt => _sleepAt;
+  int get sleepMinutes => _sleepMinutes;
+  bool get sleepAtEpisodeEnd => _sleepAtEpisodeEnd;
   int get quality => _quality;
   bool get local => _plan?.local == true;
   List<int> get qualities => _plan?.qualities ?? const [];
-  bool get danmakuSupported => detail.drama.source == SourceSite.hongguo.id;
+  bool get danmakuSupported => SourceSite.byId(detail.drama.source).danmaku;
   bool get danmakuEnabled => _danmakuEnabled;
   PlaybackPreferences get preferences => _preferences;
   DanmakuStyle get danmakuStyle => DanmakuStyle.of(store.playbackPreferences);
@@ -210,7 +244,9 @@ class PlaybackSession extends ChangeNotifier {
   bool get hasNext => _index + 1 < detail.episodes.length;
   String get qualityLabel {
     final plan = _plan;
-    if (plan?.local == true) return '本地原画';
+    if (plan != null && plan.local) {
+      return plan.quality > 0 ? '本地 ${plan.quality}P' : '本地';
+    }
     if (_quality > 0) return '${_quality}P';
     return plan != null && plan.quality > 0 ? '自动（${plan.quality}P）' : '自动';
   }
@@ -227,11 +263,12 @@ class PlaybackSession extends ChangeNotifier {
     speed: _speed,
     quality: _quality,
     danmaku: _danmakuEnabled,
+    videoFit: _videoFit,
     autoAdvance: true,
     preload: true,
   );
 
-  double get _rate => _boosting ? 2 : _speed;
+  double get _rate => _boosting ? store.playbackPreferences.boostSpeed : _speed;
 
   void _buffering(bool buffering) {
     _stallTimer?.cancel();
@@ -262,7 +299,7 @@ class PlaybackSession extends ChangeNotifier {
     }
     if (store.profileEpoch != _epoch ||
         store.locked ||
-        !store.allowsSource(SourceSite.hongguo.id)) {
+        !store.allowsSource(detail.drama.source)) {
       danmaku.setPlan(null);
     }
   }
@@ -292,7 +329,7 @@ class PlaybackSession extends ChangeNotifier {
           _openedIndex == _index &&
           _usable &&
           !store.locked &&
-          store.allowsSource(SourceSite.hongguo.id),
+          store.allowsSource(detail.drama.source),
     );
   }
 
@@ -350,17 +387,104 @@ class PlaybackSession extends ChangeNotifier {
       return;
     }
     final duration = player.state.duration;
-    if (duration <= Duration.zero ||
-        player.state.position < duration - const Duration(seconds: 2)) {
+    final position = player.state.position;
+    if (duration <= Duration.zero
+        ? position <= Duration.zero
+        : position < duration - const Duration(seconds: 2)) {
       _queueRecovery('early_completion');
-    } else if (_foreground && hasNext) {
+    } else if (_foreground && hasNext && !_sleepAtEpisodeEnd) {
       unawaited(play(_index + 1));
+    } else if (_foreground &&
+        !_sleepAtEpisodeEnd &&
+        detail.nextSeason != null) {
+      unawaited(_playNextSeason());
     } else {
-      _playIntent = false;
-      endBoost();
-      unawaited(player.pause());
-      unawaited(saveProgress());
+      final sleeping = _sleepAtEpisodeEnd;
+      if (sleeping) _clearSleep();
+      _stop();
+      if (sleeping) _notify();
     }
+  }
+
+  void _stop() {
+    _playIntent = false;
+    endBoost();
+    unawaited(player.pause());
+    unawaited(saveProgress());
+  }
+
+  void syncSeasons(List<DramaSeason> seasons) {
+    if (_closed ||
+        seasons.isEmpty ||
+        identical(seasons, detail.seasons) ||
+        !seasons.any((season) => season.drama.id == detail.drama.id)) {
+      return;
+    }
+    detail = DramaDetail(
+      detail.drama,
+      detail.episodes,
+      warning: detail.warning,
+      seasons: seasons,
+    );
+  }
+
+  Future<void> _playNextSeason() async {
+    final season = detail.nextSeason;
+    if (_advancingSeason || season == null || !_usable) return;
+    _advancingSeason = true;
+    final ticket = _generation;
+    DiaryService.add('[Play] 本季播完，切换到${season.label}');
+    _dropStandby();
+    _preloader.clear();
+    try {
+      await saveProgress();
+      final next = await repository.detail(season.drama);
+      if (!_current(ticket) || !_foreground) return;
+      if (next.episodes.isEmpty) throw AppFailure('下一季暂时没有可播放的分集');
+      detail = DramaDetail(
+        repository.catalogUpdates.current(season.drama).merge(next.drama),
+        next.episodes,
+        warning: next.warning,
+        seasons: detail.seasons,
+      );
+      _openedIndex = -1;
+      _index = 0;
+      _online = false;
+      _notify();
+      await play(0);
+    } catch (error) {
+      DiaryService.add('[Play] 切换下一季失败：${_diagnostic(error)}');
+      if (_current(ticket)) _stop();
+      _notify();
+    } finally {
+      _advancingSeason = false;
+    }
+  }
+
+  void _clearSleep() {
+    _sleepTimer?.cancel();
+    _sleepTimer = null;
+    _sleepAt = null;
+    _sleepMinutes = 0;
+    _sleepAtEpisodeEnd = false;
+  }
+
+  void setSleepTimer({int minutes = 0, bool episodeEnd = false}) {
+    if (_closed) return;
+    _clearSleep();
+    if (episodeEnd) {
+      _sleepAtEpisodeEnd = true;
+    } else if (minutes > 0) {
+      final after = Duration(minutes: minutes);
+      _sleepMinutes = minutes;
+      _sleepAt = DateTime.now().add(after);
+      _sleepTimer = Timer(after, () {
+        _clearSleep();
+        if (!_closed) _stop();
+        _notify();
+      });
+    }
+    _notify();
   }
 
   void _queueRecovery(String reason) {
@@ -425,9 +549,15 @@ class PlaybackSession extends ChangeNotifier {
     _loading = false;
     _localFailure = current.local;
     _loginRequired = false;
+    final symptom = switch (reason) {
+      'position_stalled_20s' => '画面长时间没有进度',
+      'early_completion' => '视频提前结束',
+      'open_exception' => '视频打开失败',
+      _ => '播放器报错',
+    };
     _error = current.local
-        ? '本地视频读取失败，请重试或重新下载；也可以改为在线播放。'
-        : '自动恢复未成功，请检查网络后重试，也可换一集或选择其他清晰度。';
+        ? '$symptom，本地视频没能播放。可重试或重新下载，也可以改为在线播放。'
+        : '$symptom，自动恢复未成功。可重试、换一集或选择其他清晰度。';
     _notify();
   }
 
@@ -731,6 +861,17 @@ class PlaybackSession extends ChangeNotifier {
     );
   }
 
+  Future<int?> networkSpeed() async {
+    final platform = player.platform;
+    if (_closed || local || platform is! NativePlayer) return null;
+    try {
+      final value = await platform.getProperty('cache-speed');
+      return double.tryParse(value)?.round();
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> _selectAudio(Player target, bool enabled) async {
     final platform = target.platform;
     if (platform is! NativePlayer || !Platform.isIOS) return;
@@ -838,7 +979,7 @@ class PlaybackSession extends ChangeNotifier {
         return;
       }
       _boosting = true;
-      unawaited(_setRate(2));
+      unawaited(_setRate(_rate));
       _notify();
     });
   }
@@ -848,7 +989,7 @@ class PlaybackSession extends ChangeNotifier {
     _boostTimer?.cancel();
     _boostTimer = null;
     _boosting = true;
-    unawaited(_setRate(2));
+    unawaited(_setRate(_rate));
     _notify();
   }
 
@@ -926,6 +1067,22 @@ class PlaybackSession extends ChangeNotifier {
     if (!_boosting) await _setRate(value);
   }
 
+  Future<void> setVideoFit(VideoFit value) async {
+    if (value == _videoFit) return;
+    final previous = _videoFit;
+    _videoFit = value;
+    _notify();
+    try {
+      await _savePreferences(_preferences);
+    } catch (_) {
+      if (_videoFit == value) {
+        _videoFit = previous;
+        _notify();
+      }
+      rethrow;
+    }
+  }
+
   Future<void> setQuality(int value) async {
     if (value == _quality) return;
     await _savePreferences(_preferences.copyWith(quality: value));
@@ -984,6 +1141,12 @@ class PlaybackSession extends ChangeNotifier {
     _notify();
   }
 
+  Future<void> setDanmakuSpeed(double value) async {
+    final speed = value.clamp(danmakuSpeedMin, danmakuSpeedMax);
+    await _savePreferences(_preferences.copyWith(danmakuSpeed: speed));
+    _notify();
+  }
+
   Future<void> setDanmakuCoverage(DanmakuCoverage value) async {
     await _savePreferences(_preferences.copyWith(danmakuCoverage: value));
     _notify();
@@ -997,6 +1160,7 @@ class PlaybackSession extends ChangeNotifier {
 
   void setForeground(bool visible) {
     if (_closed || _foreground == visible) return;
+    DiaryService.add(visible ? '[Play] 应用回到前台' : '[Play] 应用不可见，暂停播放');
     _foreground = visible;
     _health.reset();
     _sync();
@@ -1057,6 +1221,7 @@ class PlaybackSession extends ChangeNotifier {
     _boostTimer?.cancel();
     _stallTimer?.cancel();
     _volumeTimer?.cancel();
+    _sleepTimer?.cancel();
     if (_volumeTimer != null) _saveVolume();
     for (final subscription in _subscriptions) {
       unawaited(subscription.cancel());

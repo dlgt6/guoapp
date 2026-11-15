@@ -8,9 +8,11 @@ import '../../app_build.dart';
 import '../../app_device.dart';
 import '../../download_preferences.dart';
 import '../../local_store.dart';
+import '../../models.dart';
 import '../../playback_preferences.dart';
 import '../../resource_settings.dart';
 import '../../resource_settings_editor.dart';
+import '../../window_on_top.dart';
 import '../app_scope.dart';
 import '../player/danmaku_settings.dart';
 import '../update_prompt.dart';
@@ -22,6 +24,7 @@ import 'appearance_settings.dart';
 import 'backup_actions.dart';
 import 'diary_view.dart';
 import 'settings_rows.dart';
+import 'sorani_account_view.dart';
 import 'sources_view.dart';
 import 'storage_view.dart';
 
@@ -119,6 +122,17 @@ class SettingsSection extends StatelessWidget {
     return [
       SettingsCard(
         children: [
+          SwitchTile(
+            title: '显示弹幕',
+            subtitle: '与播放页的弹幕开关同步',
+            value: preferences.danmaku,
+            onChanged: (value) =>
+                savePreferences(preferences.copyWith(danmaku: value)),
+          ),
+        ],
+      ),
+      SettingsCard(
+        children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
             child: DanmakuSettings(
@@ -146,6 +160,14 @@ class SettingsSection extends StatelessWidget {
             value: preferences.speed,
             onChanged: (speed) =>
                 savePreferences(preferences.copyWith(speed: speed)),
+          ),
+          ValueTile<double>(
+            title: '长按倍速',
+            subtitle: '按住画面或方向键时临时使用的倍速',
+            options: {for (final speed in boostSpeeds) speed: '${speed}x'},
+            value: preferences.boostSpeed,
+            onChanged: (speed) =>
+                savePreferences(preferences.copyWith(boostSpeed: speed)),
           ),
           ValueTile<int>(
             title: '默认清晰度',
@@ -202,6 +224,18 @@ class SettingsSection extends StatelessWidget {
                   savePreferences(preferences.copyWith(swipeLevels: value)),
             ),
             SwitchTile(
+              title: '上下滑动切换剧集',
+              subtitle: preferences.swipeLevels
+                  ? '需先关闭滑动调节亮度/音量'
+                  : '横屏全屏时上滑播放下一集，下滑播放上一集',
+              value: preferences.swipeEpisodes,
+              onChanged: preferences.swipeLevels
+                  ? null
+                  : (value) => savePreferences(
+                      preferences.copyWith(swipeEpisodes: value),
+                    ),
+            ),
+            SwitchTile(
               title: '竖屏自动隐藏播控',
               subtitle: '竖屏播放几秒后隐藏标题、进度条和选集，单击暂停时重新显示',
               value: preferences.autoHideControls,
@@ -221,8 +255,41 @@ class SettingsSection extends StatelessWidget {
                     )
                   : null,
             ),
+            SwitchTile(
+              title: '横屏视频也使用竖屏样式',
+              subtitle: '竖屏观看横屏视频时画面居中，上下滑动切集，点选集右边的按钮进入全屏',
+              value: preferences.portraitStyleForWide,
+              onChanged: (value) => savePreferences(
+                preferences.copyWith(portraitStyleForWide: value),
+              ),
+            ),
+            SwitchTile(
+              title: '横屏底部进度线',
+              subtitle: '横屏全屏播控隐藏后，在画面底边保留一条细进度线',
+              value: preferences.progressLine,
+              onChanged: (value) =>
+                  savePreferences(preferences.copyWith(progressLine: value)),
+            ),
           ],
         ),
+      SettingsCard(
+        children: [
+          SwitchTile(
+            title: '全屏显示时间',
+            subtitle: '全屏播放时在画面顶部显示当前时间',
+            value: preferences.showClock,
+            onChanged: (value) =>
+                savePreferences(preferences.copyWith(showClock: value)),
+          ),
+          SwitchTile(
+            title: '全屏显示网速',
+            subtitle: '全屏播放时在画面顶部显示当前下载速度',
+            value: preferences.showNetworkSpeed,
+            onChanged: (value) =>
+                savePreferences(preferences.copyWith(showNetworkSpeed: value)),
+          ),
+        ],
+      ),
       if (Platform.isAndroid && !television)
         SettingsCard(
           children: [
@@ -232,6 +299,21 @@ class SettingsSection extends StatelessWidget {
               value: preferences.autoPictureInPicture,
               onChanged: (value) => savePreferences(
                 preferences.copyWith(autoPictureInPicture: value),
+              ),
+            ),
+          ],
+        ),
+      if (Platform.isWindows || Platform.isMacOS)
+        SettingsCard(
+          children: [
+            ValueListenableBuilder(
+              valueListenable: windowOnTop,
+              builder: (context, enabled, _) => SwitchTile(
+                title: '窗口置顶',
+                subtitle: '窗口始终显示在其他窗口上方，重启应用后仍然生效',
+                value: enabled,
+                onChanged: (value) =>
+                    saveSetting(context, () => setWindowOnTop(value)),
               ),
             ),
           ],
@@ -315,23 +397,22 @@ class SettingsSection extends StatelessWidget {
   List<Widget> _sources(BuildContext context) {
     final settings = editor.settings;
     final editable = settings != null && !editor.saving;
-    return [
-      if (allSourcesEnabled)
-        SettingsCard(
-          children: [
-            SettingsTile(
-              title: '站源管理',
-              subtitle: '开启或关闭站源',
-              onTap: () => open('站源管理', (_) => SourcesView(store: store)),
-            ),
-            SettingsTile(
-              title: '站源账号',
-              subtitle: '登录需要账号的站源',
-              onTap: () =>
-                  open('站源账号', (_) => SourceAccountsView(store: store)),
-            ),
-          ],
+    final entries = [
+      if (SourceSite.values.length > 1)
+        SettingsTile(
+          title: '站源管理',
+          subtitle: '开启或关闭站源',
+          onTap: () => open('站源管理', (_) => SourcesView(store: store)),
         ),
+      if (soraniAccountAvailable())
+        SettingsTile(
+          title: '站源账号',
+          subtitle: '登录需要账号的站源',
+          onTap: () => open('站源账号', (_) => SourceAccountsView(store: store)),
+        ),
+    ];
+    return [
+      if (entries.isNotEmpty) SettingsCard(children: entries),
       SettingsCard(
         children: [
           ?_editorError(),

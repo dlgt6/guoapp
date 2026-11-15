@@ -17,6 +17,7 @@ import '../widgets/cover_image.dart';
 import '../widgets/focus_ring.dart';
 import '../widgets/follow_button.dart';
 import '../theme/motion.dart';
+import '../widgets/choice_panel.dart';
 import '../widgets/motion/motion_widgets.dart';
 import '../widgets/status_view.dart';
 import '../widgets/swipe_switch.dart';
@@ -184,9 +185,15 @@ const _television = _Metrics(
 );
 
 class DetailPage extends StatefulWidget {
-  const DetailPage({super.key, required this.store, required this.drama});
+  const DetailPage({
+    super.key,
+    required this.store,
+    required this.drama,
+    this.autoplay = false,
+  });
   final LocalStore store;
   final Drama drama;
+  final bool autoplay;
 
   @override
   State<DetailPage> createState() => _DetailPageState();
@@ -196,16 +203,21 @@ class _DetailPageState extends State<DetailPage> {
   DramaDetails? _details;
   PlaybackHandle? _handle;
   bool _watching = false;
-  final _currentEpisode = GlobalKey();
+  var _currentEpisode = GlobalKey();
+  String _keyedDrama = '';
   bool _expanded = false;
   final _playFocus = FocusNode();
   final _followFocus = FocusNode();
   final _played = <Object>{};
   final _descriptionFocus = FocusNode();
   final _groupFocus = <FocusNode>[];
+  final _seasonFocus = <FocusNode>[];
   final _groupKeys = <GlobalKey>[];
   final _episodeFocus = List.generate(episodeGroupSize, (_) => FocusNode());
   bool _entered = false;
+  PlaybackHandle? _watched;
+  late bool _autoplayPending = widget.autoplay;
+  late bool _curtain = widget.autoplay;
 
   @override
   void didChangeDependencies() {
@@ -214,7 +226,7 @@ class _DetailPageState extends State<DetailPage> {
       AppScope.of(context).repository,
       widget.store,
       widget.drama,
-    )..addListener(_preopen);
+    )..addListener(_detailsChanged);
   }
 
   @override
@@ -226,6 +238,7 @@ class _DetailPageState extends State<DetailPage> {
       _followFocus,
       _descriptionFocus,
       ..._groupFocus,
+      ..._seasonFocus,
       ..._episodeFocus,
     ]) {
       node.dispose();
@@ -263,6 +276,7 @@ class _DetailPageState extends State<DetailPage> {
       details.drama,
       details.episodes,
       warning: details.warning,
+      seasons: details.seasons,
     );
   }
 
@@ -281,6 +295,43 @@ class _DetailPageState extends State<DetailPage> {
       television: AppScope.of(context).television,
     ),
   );
+
+  void _detailsChanged() {
+    final seasons = _details!.seasons;
+    _handle?.session.syncSeasons(seasons);
+    _watched?.session.syncSeasons(seasons);
+    _preopen();
+    unawaited(_autoplay());
+  }
+
+  Future<void> _autoplay() async {
+    final details = _details!;
+    if (!_autoplayPending || !mounted || details.loading) return;
+    _autoplayPending = false;
+    if (_ready && details.allowed) {
+      await _play(details.resumeIndex, resume: true);
+      if (!mounted) return;
+    }
+    if (_curtain) {
+      setState(() => _curtain = false);
+    } else if (AppScope.of(context).television &&
+        details.currentIndex == null) {
+      _playFocus.requestFocus();
+    }
+  }
+
+  void _liftCurtainAfter(Animation<double> entering) {
+    void lift(AnimationStatus status) {
+      if (status != AnimationStatus.completed) return;
+      entering.removeStatusListener(lift);
+      if (!mounted || !_curtain) return;
+      _entered = true;
+      setState(() => _curtain = false);
+    }
+
+    entering.addStatusListener(lift);
+    lift(entering.status);
+  }
 
   void _preopen() {
     final details = _details!;
@@ -303,7 +354,7 @@ class _DetailPageState extends State<DetailPage> {
     final details = _details!;
     final episode = details.episodes[index];
     if (episode.vip &&
-        details.drama.source != SourceSite.dsd.id &&
+        SourceSite.byId(details.drama.source).vipPrompt &&
         await showDialog<bool>(
               context: context,
               builder: (context) => AlertDialog(
@@ -328,15 +379,28 @@ class _DetailPageState extends State<DetailPage> {
     final position = _startAt(index, resume: resume);
     final handle = _handle ?? _open(index, position: position);
     _handle = null;
+    handle.session.syncSeasons(details.seasons);
     handle.session.start(index, position: position);
     _watching = true;
-    await Navigator.of(context, rootNavigator: true).push(
-      MaterialPageRoute<void>(
-        builder: (_) => PlaybackPage(store: widget.store, handle: handle),
-      ),
+    _watched = handle;
+    final route = MaterialPageRoute<void>(
+      builder: (_) => PlaybackPage(store: widget.store, handle: handle),
     );
+    final closed = Navigator.of(context, rootNavigator: true).push(route);
+    if (_curtain) _liftCurtainAfter(route.animation!);
+    await closed;
     _watching = false;
-    if (mounted && AppScope.of(context).television) _focusWatched(details);
+    _watched = null;
+    if (!mounted) return;
+    final played = handle.session.detail.drama.id;
+    if (played != details.drama.id) {
+      final season = details.seasons
+          .where((season) => season.drama.id == played)
+          .firstOrNull;
+      if (season != null) await details.selectSeason(season);
+      if (!mounted) return;
+    }
+    if (AppScope.of(context).television) _focusWatched(details);
   }
 
   void _focusWatched(DramaDetails details) {
@@ -372,6 +436,7 @@ class _DetailPageState extends State<DetailPage> {
     listenable: _details!,
     builder: (context, _) {
       final details = _details!;
+      _renewKeys(details.drama.id);
       if (!details.allowed) {
         return Scaffold(
           appBar: AppBar(),
@@ -380,6 +445,12 @@ class _DetailPageState extends State<DetailPage> {
             message: '请返回剧库后重新选择。',
             icon: Icons.lock_outline_rounded,
           ),
+        );
+      }
+      if (_curtain) {
+        return const Scaffold(
+          backgroundColor: Colors.black,
+          body: Center(child: CircularProgressIndicator()),
         );
       }
       final form = AppScope.formFactorOf(context);
@@ -508,6 +579,13 @@ class _DetailPageState extends State<DetailPage> {
                 ),
               ),
             ),
+            if (details.seasons.isNotEmpty)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+                  child: _seasonRow(details, m),
+                ),
+              ),
             if (details.episodes.isEmpty)
               SliverFillRemaining(
                 hasScrollBody: false,
@@ -627,7 +705,7 @@ class _DetailPageState extends State<DetailPage> {
           ),
       ],
     );
-    final episodes = details.episodes.isEmpty
+    final episodeList = details.episodes.isEmpty
         ? SizedBox(
             key: const ValueKey('status'),
             height: 320,
@@ -659,6 +737,17 @@ class _DetailPageState extends State<DetailPage> {
               ),
             ],
           );
+    final episodes = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (details.seasons.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: _seasonRow(details, m),
+          ),
+        FadeSwitcher(alignment: Alignment.topCenter, child: episodeList),
+      ],
+    );
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: _appBar(details, 64),
@@ -676,24 +765,13 @@ class _DetailPageState extends State<DetailPage> {
                       spacing: gap,
                       children: [
                         SizedBox(width: side, child: info),
-                        Expanded(
-                          child: FadeSwitcher(
-                            alignment: Alignment.topCenter,
-                            child: episodes,
-                          ),
-                        ),
+                        Expanded(child: episodes),
                       ],
                     )
                   : Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       spacing: gap,
-                      children: [
-                        info,
-                        FadeSwitcher(
-                          alignment: Alignment.topCenter,
-                          child: episodes,
-                        ),
-                      ],
+                      children: [info, episodes],
                     ),
             ),
           ),
@@ -713,6 +791,10 @@ class _DetailPageState extends State<DetailPage> {
     while (_groupFocus.length < details.groupCount) {
       _groupFocus.add(FocusNode());
     }
+    while (_seasonFocus.length < details.seasons.length) {
+      _seasonFocus.add(FocusNode());
+    }
+    const focusBleed = 12.0;
     final page = Scaffold(
       body: _withBackdrop(
         details.drama,
@@ -721,7 +803,7 @@ class _DetailPageState extends State<DetailPage> {
           padding: const EdgeInsets.fromLTRB(
             televisionInset,
             40,
-            televisionInset,
+            televisionInset - focusBleed,
             27,
           ),
           child: Focus(
@@ -730,14 +812,38 @@ class _DetailPageState extends State<DetailPage> {
             onKeyEvent: (_, event) => _televisionKey(details, m, event),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
-              spacing: 40,
+              spacing: 40 - focusBleed,
               children: [
                 SizedBox(width: 380, child: _televisionInfo(details, m)),
                 Expanded(
-                  child: FadeSwitcher(
-                    alignment: Alignment.topCenter,
-                    child: _televisionEpisodes(details, m),
-                  ),
+                  child: details.seasons.isEmpty
+                      ? Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: focusBleed,
+                          ),
+                          child: FadeSwitcher(
+                            alignment: Alignment.topCenter,
+                            child: _televisionEpisodes(details, m),
+                          ),
+                        )
+                      : SingleChildScrollView(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: focusBleed,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 10),
+                                child: _seasonRow(details, m),
+                              ),
+                              FadeSwitcher(
+                                alignment: Alignment.topCenter,
+                                child: _televisionEpisodes(details, m),
+                              ),
+                            ],
+                          ),
+                        ),
                 ),
               ],
             ),
@@ -776,8 +882,23 @@ class _DetailPageState extends State<DetailPage> {
       return KeyEventResult.ignored;
     }
     final group = _groupFocus.indexOf(node);
+    final season = _seasonFocus.indexOf(node);
     final episode = _episodeFocus.indexOf(node);
-    if (node == _playFocus ||
+    if (season >= 0) {
+      if (key == LogicalKeyboardKey.arrowLeft) {
+        season == 0
+            ? _playFocus.requestFocus()
+            : revealFocus(_seasonFocus[season - 1]);
+      } else if (key == LogicalKeyboardKey.arrowRight &&
+          season + 1 < details.seasons.length) {
+        revealFocus(_seasonFocus[season + 1]);
+      } else if (key == LogicalKeyboardKey.arrowDown) {
+        if (details.episodes.isEmpty) return KeyEventResult.ignored;
+        details.groupCount > 1
+            ? revealFocus(_groupFocus[details.group])
+            : _focusEpisodes(details);
+      }
+    } else if (node == _playFocus ||
         node == _followFocus ||
         node == _descriptionFocus) {
       if (key == LogicalKeyboardKey.arrowRight && node == _playFocus) {
@@ -804,6 +925,8 @@ class _DetailPageState extends State<DetailPage> {
         _focusGroup(details, group + 1);
       } else if (key == LogicalKeyboardKey.arrowDown) {
         _focusEpisodes(details);
+      } else if (key == LogicalKeyboardKey.arrowUp) {
+        _focusSeason(details);
       }
     } else if (episode >= 0) {
       final columns = m.columns;
@@ -827,6 +950,8 @@ class _DetailPageState extends State<DetailPage> {
           episode < columns &&
           details.groupCount > 1) {
         revealFocus(_groupFocus[details.group]);
+      } else if (key == LogicalKeyboardKey.arrowUp && episode < columns) {
+        _focusSeason(details);
       } else {
         _episodeFocus[target].requestFocus();
       }
@@ -839,6 +964,14 @@ class _DetailPageState extends State<DetailPage> {
   void _focusGroup(DramaDetails details, int group) {
     details.selectGroup(group);
     revealFocus(_groupFocus[group]);
+  }
+
+  void _focusSeason(DramaDetails details) {
+    if (details.seasons.isEmpty) return;
+    final index = details.seasons.indexWhere(
+      (season) => season.drama.id == details.drama.id,
+    );
+    revealFocus(_seasonFocus[math.max(index, 0)]);
   }
 
   void _focusEpisodes(DramaDetails details) {
@@ -1395,6 +1528,25 @@ class _DetailPageState extends State<DetailPage> {
     ],
   );
 
+  Widget _seasonRow(DramaDetails details, _Metrics m) => _SeasonStrip(
+    seasons: details.seasons,
+    current: details.drama.id,
+    store: widget.store,
+    metrics: m,
+    swipeHint: !AppScope.of(context).television,
+    collapsed: AppScope.formFactorOf(context) == FormFactor.window,
+    focus: AppScope.of(context).television ? _seasonFocus : const [],
+    onSelected: (season) => unawaited(_selectSeason(season)),
+  );
+
+  Future<void> _selectSeason(DramaSeason season) async {
+    final details = _details!;
+    if (season.drama.id == details.drama.id) return;
+    _handle?.dispose();
+    _handle = null;
+    await details.selectSeason(season);
+  }
+
   Widget _groupChip(
     DramaDetails details,
     _Metrics m,
@@ -1416,6 +1568,13 @@ class _DetailPageState extends State<DetailPage> {
       onSwitch: (group) => _swipeTo(details, group),
       child: _grid(details, m),
     );
+  }
+
+  void _renewKeys(String drama) {
+    if (drama == _keyedDrama) return;
+    _keyedDrama = drama;
+    _currentEpisode = GlobalKey();
+    _groupKeys.clear();
   }
 
   GlobalKey _groupKey(int group) {
@@ -1508,6 +1667,313 @@ class _DetailPageState extends State<DetailPage> {
           ),
         );
       },
+    );
+  }
+}
+
+class _SeasonStrip extends StatefulWidget {
+  const _SeasonStrip({
+    required this.seasons,
+    required this.current,
+    required this.store,
+    required this.metrics,
+    required this.swipeHint,
+    required this.collapsed,
+    required this.focus,
+    required this.onSelected,
+  });
+  final bool collapsed;
+  final List<FocusNode> focus;
+  final List<DramaSeason> seasons;
+  final String current;
+  final LocalStore store;
+  final _Metrics metrics;
+  final bool swipeHint;
+  final ValueChanged<DramaSeason> onSelected;
+
+  @override
+  State<_SeasonStrip> createState() => _SeasonStripState();
+}
+
+class _SeasonStripState extends State<_SeasonStrip> {
+  static const _cardWidth = 116.0;
+  static const _gap = 8.0;
+  final _scroll = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _reveal(animate: false);
+  }
+
+  @override
+  void didUpdateWidget(_SeasonStrip oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.current != widget.current) _reveal(animate: true);
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _reveal({required bool animate}) {
+    final index = widget.seasons.indexWhere(
+      (season) => season.drama.id == widget.current,
+    );
+    if (index <= 0) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scroll.hasClients) return;
+      final offset = (index * (_cardWidth + _gap) - _cardWidth / 2).clamp(
+        0.0,
+        _scroll.position.maxScrollExtent,
+      );
+      if (animate) {
+        _scroll.animateTo(
+          offset,
+          duration: Motion.medium,
+          curve: Curves.easeOut,
+        );
+      } else {
+        _scroll.jumpTo(offset);
+      }
+    });
+  }
+
+  String _status(DramaSeason season, bool selected) {
+    if (selected) return '正在浏览';
+    final watched = widget.store.watched(season.drama.id);
+    if (watched != null && !watched.finished) return '看至第${watched.episode}集';
+    if (season.upcoming) return '待上线';
+    return season.drama.episodes > 0 ? '共 ${season.drama.episodes} 集' : '';
+  }
+
+  void _openMenu() {
+    unawaited(
+      showAnchoredPanel<void>(
+        context: context,
+        width: context.size!.width,
+        builder: (_) => GridView.builder(
+          shrinkWrap: true,
+          padding: const EdgeInsets.all(12),
+          itemCount: widget.seasons.length,
+          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 150,
+            mainAxisExtent: 82,
+            mainAxisSpacing: _gap,
+            crossAxisSpacing: _gap,
+          ),
+          itemBuilder: (menu, index) =>
+              _card(menu, widget.seasons[index], null, (season) {
+                Navigator.pop(menu);
+                widget.onSelected(season);
+              }),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final m = widget.metrics;
+    final background = colors.surfaceContainerHighest.withValues(alpha: .55);
+    final currentLabel = widget.seasons
+        .where((season) => season.drama.id == widget.current)
+        .firstOrNull
+        ?.label;
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: 10,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(
+            children: [
+              Icon(Icons.layers_rounded, size: 16, color: colors.primary),
+              const SizedBox(width: 6),
+              Text(
+                '系列多季',
+                style: TextStyle(
+                  fontSize: m.section,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: colors.primary.withValues(alpha: .16),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  '共 ${widget.seasons.length} 季',
+                  style: TextStyle(fontSize: m.tag, color: colors.primary),
+                ),
+              ),
+              const Spacer(),
+              if (widget.collapsed) ...[
+                if (currentLabel != null)
+                  Text(
+                    currentLabel,
+                    style: TextStyle(
+                      fontSize: m.tag,
+                      color: colors.onSurfaceVariant,
+                    ),
+                  ),
+                Icon(
+                  Icons.expand_more_rounded,
+                  size: 20,
+                  color: colors.onSurfaceVariant,
+                ),
+              ] else if (widget.swipeHint)
+                Text(
+                  '左右滑动切换',
+                  style: TextStyle(
+                    fontSize: m.tag,
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+            ],
+          ),
+        ),
+        if (!widget.collapsed)
+          SizedBox(
+            height: 90,
+            child: ListView.separated(
+              controller: _scroll,
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              itemCount: widget.seasons.length,
+              separatorBuilder: (_, _) => const SizedBox(width: _gap),
+              itemBuilder: (context, index) => _card(
+                context,
+                widget.seasons[index],
+                index < widget.focus.length ? widget.focus[index] : null,
+                widget.onSelected,
+              ),
+            ),
+          ),
+      ],
+    );
+    if (widget.collapsed) {
+      return Material(
+        color: background,
+        borderRadius: BorderRadius.circular(16),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: _openMenu,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(4, 10, 4, 10),
+            child: content,
+          ),
+        ),
+      );
+    }
+    return Container(
+      padding: const EdgeInsets.fromLTRB(4, 10, 4, 12),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: content,
+    );
+  }
+
+  Widget _card(
+    BuildContext context,
+    DramaSeason season,
+    FocusNode? focusNode,
+    ValueChanged<DramaSeason> onSelected,
+  ) {
+    final colors = Theme.of(context).colorScheme;
+    final m = widget.metrics;
+    final selected = season.drama.id == widget.current;
+    final foreground = selected ? colors.onPrimaryContainer : colors.onSurface;
+    final muted = selected
+        ? colors.onPrimaryContainer.withValues(alpha: .8)
+        : colors.onSurfaceVariant;
+    final status = _status(season, selected);
+    final online = season.onlineLabel;
+    return FocusRing(
+      radius: 12,
+      child: Material(
+        color: selected ? colors.primaryContainer : colors.surfaceContainer,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          focusNode: focusNode,
+          onTap: selected && focusNode == null
+              ? null
+              : () => onSelected(season),
+          child: Container(
+            width: _cardWidth,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              spacing: 3,
+              children: [
+                Row(
+                  spacing: 4,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        season.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: m.meta,
+                          fontWeight: FontWeight.w700,
+                          color: foreground,
+                        ),
+                      ),
+                    ),
+                    if (selected)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 1,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colors.onPrimaryContainer.withValues(
+                            alpha: .14,
+                          ),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          '当前',
+                          style: TextStyle(
+                            fontSize: m.tag * .85,
+                            color: colors.onPrimaryContainer,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                if (status.isNotEmpty)
+                  Text(
+                    status,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: m.tag, color: muted),
+                  ),
+                if (online != null)
+                  Text(
+                    online,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: m.tag * .85,
+                      color: muted.withValues(alpha: .7),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
