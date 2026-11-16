@@ -1,8 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../local_store.dart';
-import '../../models.dart';
 import '../../resource_settings_editor.dart';
 import '../app_scope.dart';
 import '../shell/app_shell.dart';
@@ -152,9 +153,9 @@ class _SettingsPageState extends State<SettingsPage> {
       ].join(' · '),
       SettingsGroup.playback => '倍速、清晰度、解码与手势',
       SettingsGroup.danmaku => '字号、颜色、显示区域与屏蔽词',
-      SettingsGroup.download => '默认画质、目录与空间、同时下载数量',
-      SettingsGroup.sources =>
-        SourceSite.values.length > 1 ? '模块、站源管理、目录请求间隔' : '模块、目录请求间隔',
+      SettingsGroup.download =>
+        Platform.isAndroid ? '默认画质、同时下载数量、自动导出' : '默认画质、VIP 集、同时下载数量',
+      SettingsGroup.storage => '下载目录、清理缓存、删除全部数据',
       SettingsGroup.proxy => '连接方式、代理地址',
       SettingsGroup.users => '当前：${store.profile.name}',
       SettingsGroup.about =>
