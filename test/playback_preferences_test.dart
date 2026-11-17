@@ -17,9 +17,21 @@ void main() {
     expect(preferences.danmakuBold, isTrue);
     expect(preferences.danmakuStroke, 0);
     expect(preferences.danmakuShadow, 3);
-    expect(preferences.danmakuCoverage, DanmakuCoverage.half);
+    expect(preferences.danmakuCoverage, DanmakuCoverage.p50);
     expect(preferences.danmakuSpeed, 1);
     expect(preferences.danmakuWords, isEmpty);
+  });
+
+  test('legacy danmaku coverage names map to the new steps', () {
+    DanmakuCoverage coverage(String name) =>
+        PlaybackPreferences.fromJson({
+          'speed': 1,
+          'danmakuCoverage': name,
+        }).danmakuCoverage;
+    expect(coverage('quarter'), DanmakuCoverage.p25);
+    expect(coverage('half'), DanmakuCoverage.p50);
+    expect(coverage('full'), DanmakuCoverage.p100);
+    expect(coverage('p75'), DanmakuCoverage.p75);
   });
 
   test('danmaku values round trip through json', () {
@@ -31,7 +43,7 @@ void main() {
       danmakuBold: false,
       danmakuStroke: 2,
       danmakuShadow: 6,
-      danmakuCoverage: DanmakuCoverage.full,
+      danmakuCoverage: DanmakuCoverage.p100,
       danmakuSpeed: 1.5,
       danmakuWords: ['剧透', '广告'],
     );
@@ -39,7 +51,7 @@ void main() {
     expect(restored.toJson(), preferences.toJson());
     expect(restored.danmakuColor, 0xFFFFE066);
     expect(restored.danmakuColorMode, DanmakuColorMode.gradient);
-    expect(restored.danmakuCoverage, DanmakuCoverage.full);
+    expect(restored.danmakuCoverage, DanmakuCoverage.p100);
     expect(restored.danmakuWords, ['剧透', '广告']);
   });
 
@@ -59,7 +71,7 @@ void main() {
     expect(preferences.danmakuStroke, danmakuStrokeMin);
     expect(preferences.danmakuShadow, danmakuShadowMax);
     expect(preferences.danmakuSpeed, danmakuSpeedMax);
-    expect(preferences.danmakuCoverage, DanmakuCoverage.half);
+    expect(preferences.danmakuCoverage, DanmakuCoverage.p50);
     expect(preferences.danmakuColor, 0xFFFFFFFF);
     expect(preferences.danmakuColorMode, DanmakuColorMode.normal);
   });
