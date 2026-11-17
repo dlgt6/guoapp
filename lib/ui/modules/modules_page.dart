@@ -11,6 +11,7 @@ import '../../models.dart';
 import '../../source_modules.dart';
 import '../app_scope.dart';
 import '../settings/settings_rows.dart';
+import 'module_install.dart';
 import '../settings/sorani_account_view.dart';
 import '../widgets/bar_button.dart';
 import '../widgets/focus_ring.dart';
@@ -135,7 +136,12 @@ class _ModulesPageState extends State<ModulesPage>
   }
 
   Future<void> _installIndexed(ModuleIndexEntry entry) => _run(
-    () async => _install(await _repository.prepareModule(indexed: entry.id)),
+    () async => _install(
+      await _repository.prepareModule(
+        indexed: entry.id,
+        bundled: entry.bundled,
+      ),
+    ),
   );
 
   Future<void> _install(SourceModule module) async {
@@ -145,22 +151,26 @@ class _ModulesPageState extends State<ModulesPage>
       builder: (_) => _ModuleDialog(module: module, install: true),
     );
     if (accepted != true) return;
-    final id = await _repository.installModule(module.token);
-    if (!module.installed) {
-      await _store.setSourceEnabled(id, true);
-    }
-    final site = SourceSite.byId(id);
-    if (site.devices && !await _repository.sourceDevices(id)) {
-      try {
-        if (!await _repository.sourceDevices(id, register: true)) {
-          throw AppFailure('设备注册未完成');
-        }
-      } catch (failure) {
-        _show('${module.name} 已安装，但$failure；下次打开应用时会再次注册');
-        return;
-      }
-    }
-    _show('${module.name} 已安装');
+    _show(await _applyInstall(module) ?? '${module.name} 已安装');
+  }
+
+  Future<String?> _applyInstall(SourceModule module) =>
+      applyModuleInstall(_repository, _store, module);
+
+  Future<void> _installAll(List<ModuleIndexEntry> entries) async {
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (_) => BatchInstallDialog(
+        entries: entries,
+        title: '安装 ${entries.length} 个站源？',
+        message: '这些站源会逐个安装并启用。',
+      ),
+    );
+    if (accepted != true) return;
+    await _run(
+      () async =>
+          _show(await installIndexedModules(_repository, _store, entries)),
+    );
   }
 
   Future<void> _installFile() => _run(() async {
@@ -255,10 +265,14 @@ class _ModulesPageState extends State<ModulesPage>
   Widget _installedTab() {
     final modules = _modules;
     final enabled = _canInstall;
-    final latest = {
-      for (final entry in _index?.entries ?? const <ModuleIndexEntry>[])
-        entry.id: entry,
-    };
+    final latest = <String, ModuleIndexEntry>{};
+    for (final entry in _index?.entries ?? const <ModuleIndexEntry>[]) {
+      final current = latest[entry.id];
+      if (current == null ||
+          isNewerModuleVersion(entry.version, current.version)) {
+        latest[entry.id] = entry;
+      }
+    }
     return _list([
       if (_error case final error?) _Note(error),
       if (modules == null && _error == null)
@@ -307,6 +321,18 @@ class _ModulesPageState extends State<ModulesPage>
         );
     return _list([
       if (warning.isNotEmpty) _Note(warning),
+      if (!bundled && entries.isNotEmpty)
+        SettingsCard(
+          children: [
+            SettingsTile(
+              icon: Icons.download_rounded,
+              title: '安装全部站源',
+              subtitle: '在线仓库里还有 ${entries.length} 个未安装',
+              enabled: enabled,
+              onTap: enabled ? () => _installAll(entries) : null,
+            ),
+          ],
+        ),
       if (_indexError ?? _error case final error?)
         _Note(error)
       else if (_index == null || _modules == null)

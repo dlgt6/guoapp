@@ -392,6 +392,14 @@ class LocalStore extends ChangeNotifier {
     });
   }
 
+  List<String> _restoredModules = const [];
+
+  List<String> takeRestoredModules() {
+    final modules = _restoredModules;
+    _restoredModules = const [];
+    return modules;
+  }
+
   Map<String, FollowCheck> get followChecks => Map.of(_followChecks);
 
   Future<void> saveFollowChecks(
@@ -1009,7 +1017,7 @@ class LocalStore extends ChangeNotifier {
     _notify();
   });
 
-  Future<String> exportBackup() async {
+  Future<String> exportBackup({Iterable<String> modules = const []}) async {
     await _writes.catchError((Object _) {});
     _requireAdmin();
     final libraries = <String, Object?>{};
@@ -1052,6 +1060,8 @@ class LocalStore extends ChangeNotifier {
       'deleteAfterAutoExport': deleteAfterAutoExport,
       'deleteAfterManualExport': deleteAfterManualExport,
       'televisionKeyboard': televisionKeyboard,
+      'sourceSwitches': _map(_settings['sourceSwitches']),
+      'modules': modules.where(validSourceId).toSet().toList(),
       'libraries': libraries,
     });
     if (utf8.encode(content).length > 8 * 1024 * 1024) {
@@ -1091,6 +1101,25 @@ class LocalStore extends ChangeNotifier {
       (key) => data.containsKey(key) && data[key] is! bool,
     )) {
       throw const FormatException('备份设置无效');
+    }
+    if (data['sourceSwitches'] case final Object switches) {
+      if (switches is! Map ||
+          switches.length > 100 ||
+          switches.entries.any(
+            (entry) =>
+                entry.key is! String ||
+                !validSourceId(entry.key as String) ||
+                entry.value is! bool,
+          )) {
+        throw const FormatException('备份站源设置无效');
+      }
+    }
+    if (data['modules'] case final Object modules) {
+      if (modules is! List ||
+          modules.length > 100 ||
+          modules.any((id) => id is! String || !validSourceId(id))) {
+        throw const FormatException('备份模块列表无效');
+      }
     }
     final libraries = data['libraries'] as Map;
     for (final profile in profiles) {
@@ -1151,6 +1180,8 @@ class LocalStore extends ChangeNotifier {
           'themeColor': color.name,
         for (final key in _backupFlags)
           if (data[key] case final bool value) key: value,
+        if (data['sourceSwitches'] case final Map switches)
+          'sourceSwitches': switches,
         if (data['blurCoversLaunch'] case final String mode)
           'blurCoversLaunch': mode
         else if (data['blurCoversOnLaunch'] case final bool launch)
@@ -1184,6 +1215,9 @@ class LocalStore extends ChangeNotifier {
     }
     await _removeLegacy();
     await _initialize();
+    _restoredModules = [
+      if (data['modules'] case final List modules) ...modules.cast<String>(),
+    ];
     _epoch++;
     _notify();
   }
