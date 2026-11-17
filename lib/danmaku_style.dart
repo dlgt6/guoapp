@@ -11,7 +11,7 @@ class DanmakuStyle {
     this.bold = true,
     this.stroke = 0,
     this.shadow = 3,
-    this.coverage = DanmakuCoverage.half,
+    this.coverage = DanmakuCoverage.p50,
     this.speed = 1,
   });
 

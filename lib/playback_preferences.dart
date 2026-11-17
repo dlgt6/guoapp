@@ -18,14 +18,37 @@ enum DanmakuColorMode { normal, colorful, gradient }
 enum TelevisionDecoder { optimized, hardware, software }
 
 enum DanmakuCoverage {
-  quarter(.25, '顶部四分之一'),
-  half(.5, '顶部一半'),
-  full(1, '全部');
+  p25(.25, '上部25%'),
+  p30(.30, '上部30%'),
+  p35(.35, '上部35%'),
+  p40(.40, '上部40%'),
+  p45(.45, '上部45%'),
+  p50(.50, '上部50%'),
+  p55(.55, '上部55%'),
+  p60(.60, '上部60%'),
+  p65(.65, '上部65%'),
+  p70(.70, '上部70%'),
+  p75(.75, '上部75%'),
+  p80(.80, '上部80%'),
+  p85(.85, '上部85%'),
+  p90(.90, '上部90%'),
+  p95(.95, '上部95%'),
+  p100(1, '上部100%');
 
   const DanmakuCoverage(this.fraction, this.label);
 
   final double fraction;
   final String label;
+
+  static DanmakuCoverage fromName(Object? name) {
+    if (name is! String) return p50;
+    return switch (name) {
+      'quarter' => p25,
+      'half' => p50,
+      'full' => p100,
+      _ => values.asNameMap()[name] ?? p50,
+    };
+  }
 }
 
 enum VideoFit {
@@ -92,7 +115,7 @@ class PlaybackPreferences {
     this.danmakuBold = true,
     this.danmakuStroke = 0,
     this.danmakuShadow = 3,
-    this.danmakuCoverage = DanmakuCoverage.half,
+    this.danmakuCoverage = DanmakuCoverage.p50,
     this.danmakuSpeed = 1,
     this.danmakuWords = const [],
     this.preload = true,
@@ -279,9 +302,7 @@ class PlaybackPreferences {
         danmakuShadowMin,
         danmakuShadowMax,
       ),
-      danmakuCoverage:
-          DanmakuCoverage.values.asNameMap()[value['danmakuCoverage']] ??
-          DanmakuCoverage.half,
+      danmakuCoverage: DanmakuCoverage.fromName(value['danmakuCoverage']),
       danmakuSpeed: (value['danmakuSpeed'] as num? ?? 1).toDouble().clamp(
         danmakuSpeedMin,
         danmakuSpeedMax,
