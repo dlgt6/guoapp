@@ -12,6 +12,7 @@ void main() {
     expect(preferences.speed, 1.5);
     expect(preferences.quality, 720);
     expect(preferences.danmakuScale, 1);
+    expect(preferences.danmakuColorMode, DanmakuColorMode.normal);
     expect(preferences.danmakuOpacity, 1);
     expect(preferences.danmakuBold, isTrue);
     expect(preferences.danmakuStroke, 0);
@@ -25,6 +26,7 @@ void main() {
     const preferences = PlaybackPreferences(
       danmakuScale: 1.4,
       danmakuColor: 0xFFFFE066,
+      danmakuColorMode: DanmakuColorMode.gradient,
       danmakuOpacity: .6,
       danmakuBold: false,
       danmakuStroke: 2,
@@ -36,6 +38,7 @@ void main() {
     final restored = PlaybackPreferences.fromJson(preferences.toJson());
     expect(restored.toJson(), preferences.toJson());
     expect(restored.danmakuColor, 0xFFFFE066);
+    expect(restored.danmakuColorMode, DanmakuColorMode.gradient);
     expect(restored.danmakuCoverage, DanmakuCoverage.full);
     expect(restored.danmakuWords, ['剧透', '广告']);
   });
@@ -49,6 +52,7 @@ void main() {
       'danmakuSpeed': 9,
       'danmakuCoverage': 'unknown',
       'danmakuColor': 0xFF123456,
+      'danmakuColorMode': 'unknown',
     });
     expect(preferences.danmakuScale, danmakuScaleMax);
     expect(preferences.danmakuOpacity, .1);
@@ -57,6 +61,7 @@ void main() {
     expect(preferences.danmakuSpeed, danmakuSpeedMax);
     expect(preferences.danmakuCoverage, DanmakuCoverage.half);
     expect(preferences.danmakuColor, 0xFFFFFFFF);
+    expect(preferences.danmakuColorMode, DanmakuColorMode.normal);
   });
 
   test('blocked words are trimmed, deduplicated and capped', () {
