@@ -15,6 +15,7 @@ import '../explore/source_actions.dart';
 import '../follow/follow_page.dart';
 import '../history/history_page.dart';
 import '../mine/mine_page.dart';
+import '../search/search_page.dart';
 import '../update_prompt.dart';
 import '../modules/module_install.dart';
 import '../widgets/bar_button.dart';
@@ -25,9 +26,11 @@ import '../widgets/source_bar.dart';
 
 enum AppTab {
   explore('发现', Icons.explore_outlined, Icons.explore),
+  search('搜索', Icons.search_outlined, Icons.search_rounded),
   follow('追剧', Icons.bookmark_border_rounded, Icons.bookmark_rounded),
   history('历史', Icons.history_rounded, Icons.history_rounded),
-  mine('我的', Icons.person_outline_rounded, Icons.person_rounded);
+  mine('我的', Icons.person_outline_rounded, Icons.person_rounded),
+  sources('站源', Icons.dns_outlined, Icons.dns_rounded);
 
   const AppTab(this.label, this.icon, this.selectedIcon);
   final String label;
@@ -149,17 +152,26 @@ class _AppShellState extends State<AppShell> {
     super.dispose();
   }
 
-  List<AppTab> get _tabs => [
-    for (final tab in AppTab.values)
-      if (switch (tab) {
-        AppTab.history =>
-          widget.store.historyTab && !AppScope.of(context).television,
-        AppTab.explore || AppTab.follow || AppTab.mine => true,
-      })
-        tab,
-  ];
+  List<AppTab> get _tabs {
+    final television = AppScope.of(context).television;
+    return [
+      for (final tab in AppTab.values)
+        if (switch (tab) {
+          AppTab.history => widget.store.historyTab && !television,
+          AppTab.search || AppTab.sources => television,
+          AppTab.explore || AppTab.follow || AppTab.mine => true,
+        })
+          tab,
+    ];
+  }
 
-  void _select(AppTab tab) => setState(() => _tab = tab);
+  void _select(AppTab tab) {
+    if (tab == AppTab.sources) {
+      pickSource(context, widget.store);
+      return;
+    }
+    setState(() => _tab = tab);
+  }
 
   void _tap(AppTab tab) {
     if (tab != _tab) return _select(tab);
@@ -235,6 +247,10 @@ class _AppShellState extends State<AppShell> {
 
   Widget _root(AppTab tab) => switch (tab) {
     AppTab.explore => ExplorePage(key: _explore, store: widget.store),
+    AppTab.search => SearchPage(
+      store: widget.store,
+      source: SourceSite.byId(widget.store.source),
+    ),
     AppTab.follow => FollowPage(
       store: widget.store,
       entryFocus: _followEntry,
@@ -249,6 +265,7 @@ class _AppShellState extends State<AppShell> {
       entryFocus: _mineEntry,
       onExitUp: _tabFocus[AppTab.mine.index].requestFocus,
     ),
+    AppTab.sources => const Scaffold(),
   };
 
   @override
@@ -344,7 +361,10 @@ class _AppShellState extends State<AppShell> {
                         final entry = switch (_tab) {
                           AppTab.follow => _followEntry,
                           AppTab.mine => _mineEntry,
-                          AppTab.explore || AppTab.history => null,
+                          AppTab.explore ||
+                          AppTab.history ||
+                          AppTab.search ||
+                          AppTab.sources => null,
                         };
                         if (event is KeyUpEvent ||
                             event.logicalKey != LogicalKeyboardKey.arrowDown ||
