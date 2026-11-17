@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../app_scope.dart';
 import 'focus_ring.dart';
 import 'motion/motion_widgets.dart';
 
@@ -13,7 +14,10 @@ Future<String?> showLetterKeyboard(
   TitleMatches? matches,
 }) => showDialog<String>(
   context: context,
-  builder: (_) => _LetterKeyboard(text: text, matches: matches),
+  builder: (dialogContext) => Dialog.fullscreen(
+    backgroundColor: Theme.of(dialogContext).colorScheme.surface,
+    child: _LetterKeyboard(text: text, matches: matches),
+  ),
 );
 
 const _rows = ['ABCDEF', 'GHIJKL', 'MNOPQR', 'STUVWX', 'YZ1234', '567890'];
@@ -74,48 +78,59 @@ class _LetterKeyboardState extends State<_LetterKeyboard> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    return Dialog(
-      child: SizedBox(
-        width: 720,
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            spacing: 12,
-            children: [
-              Container(
-                height: 48,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                alignment: Alignment.centerLeft,
-                decoration: BoxDecoration(
-                  color: colors.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                child: Text(
-                  _text.isEmpty ? '输入剧名拼音首字母，例如 BDZC' : _text,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: _text.isEmpty ? colors.onSurfaceVariant : null,
-                    letterSpacing: _text.isEmpty ? null : 2,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        televisionInset,
+        27,
+        televisionInset,
+        27,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: 16,
+        children: [
+          Container(
+            height: 64,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            alignment: Alignment.centerLeft,
+            decoration: BoxDecoration(
+              color: colors.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(32),
+            ),
+            child: Text(
+              _text.isEmpty ? '输入剧名拼音首字母，例如 BDZC' : _text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.titleLarge?.copyWith(
+                color: _text.isEmpty ? colors.onSurfaceVariant : null,
+                letterSpacing: _text.isEmpty ? null : 2,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              spacing: 24,
+              children: [
+                Flexible(
+                  flex: 4,
+                  fit: FlexFit.tight,
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 640),
+                      child: _keyboard(),
+                    ),
                   ),
                 ),
-              ),
-              SizedBox(
-                height: 328,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  spacing: 20,
-                  children: [
-                    SizedBox(width: 360, child: _keyboard()),
-                    Expanded(child: _results(theme)),
-                  ],
+                Flexible(
+                  flex: 5,
+                  fit: FlexFit.tight,
+                  child: _results(theme),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -136,7 +151,7 @@ class _LetterKeyboardState extends State<_LetterKeyboard> {
                     child: Text(
                       key,
                       style: const TextStyle(
-                        fontSize: 18,
+                        fontSize: 24,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -154,17 +169,20 @@ class _LetterKeyboardState extends State<_LetterKeyboard> {
                 onPressed: () => _edit(
                   _text.isEmpty ? _text : _text.substring(0, _text.length - 1),
                 ),
-                child: const Icon(Icons.backspace_outlined, size: 20),
+                child: const Icon(Icons.backspace_outlined, size: 24),
               ),
             ),
             Expanded(
-              child: _Key(onPressed: () => _edit(''), child: const Text('清空')),
+              child: _Key(
+                onPressed: () => _edit(''),
+                child: const Text('清空', style: TextStyle(fontSize: 20)),
+              ),
             ),
             Expanded(
               child: _Key(
                 filled: true,
                 onPressed: () => Navigator.pop(context, _text.trim()),
-                child: const Text('确定'),
+                child: const Text('确定', style: TextStyle(fontSize: 20)),
               ),
             ),
           ],
