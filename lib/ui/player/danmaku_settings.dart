@@ -8,6 +8,7 @@ import '../widgets/form_text_field.dart';
 import '../widgets/slider_tile.dart';
 
 const _colorLabels = ['白色', '黄色', '青色', '粉色', '绿色'];
+const _colorModeLabels = ['默认', '彩色', '渐变'];
 
 class DanmakuSettings extends StatelessWidget {
   const DanmakuSettings({
@@ -115,6 +116,7 @@ class DanmakuSettings extends StatelessWidget {
   Future<void> _asyncSave({
     double? scale,
     int? color,
+    DanmakuColorMode? colorMode,
     double? opacity,
     double? stroke,
     double? shadow,
@@ -127,6 +129,7 @@ class DanmakuSettings extends StatelessWidget {
       _preferences.copyWith(
         danmakuScale: scale,
         danmakuColor: color,
+        danmakuColorMode: colorMode,
         danmakuOpacity: opacity,
         danmakuStroke: stroke,
         danmakuShadow: shadow,
@@ -160,27 +163,53 @@ class DanmakuSettings extends StatelessWidget {
         _section(context, '外观'),
         _scaleTile(),
         Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text('颜色', style: label),
+        ),
+        Padding(
           padding: const EdgeInsets.fromLTRB(0, 4, 0, 8),
           child: Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
-              for (final (index, color) in danmakuColors.indexed)
+              for (final (index, mode) in DanmakuColorMode.values.indexed)
                 ChoiceChip(
-                  avatar: CircleAvatar(backgroundColor: Color(color)),
-                  label: Text(_colorLabels[index]),
-                  selected: preferences.danmakuColor == color,
+                  label: Text(_colorModeLabels[index]),
+                  selected: preferences.danmakuColorMode == mode,
                   showCheckmark: false,
                   shape: const StadiumBorder(),
                   onSelected: (_) => _apply(
                     () =>
-                        session?.setDanmakuColor(color) ??
-                        _asyncSave(color: color),
+                        session?.setDanmakuColorMode(mode) ??
+                        _asyncSave(colorMode: mode),
                   ),
                 ),
             ],
           ),
         ),
+        if (preferences.danmakuColorMode == DanmakuColorMode.normal)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(0, 0, 0, 8),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final (index, color) in danmakuColors.indexed)
+                  ChoiceChip(
+                    avatar: CircleAvatar(backgroundColor: Color(color)),
+                    label: Text(_colorLabels[index]),
+                    selected: preferences.danmakuColor == color,
+                    showCheckmark: false,
+                    shape: const StadiumBorder(),
+                    onSelected: (_) => _apply(
+                      () =>
+                          session?.setDanmakuColor(color) ??
+                          _asyncSave(color: color),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         _opacityTile(),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,

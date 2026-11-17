@@ -71,10 +71,30 @@ List<DanmakuFlight> planDanmaku(
   return flights;
 }
 
+const _colorfulPalette = [
+  Color(0xFFFFFFFF),
+  Color(0xFFFF5252),
+  Color(0xFFFFEB3B),
+  Color(0xFF69F0AE),
+  Color(0xFF40C4FF),
+  Color(0xFFE040FB),
+  Color(0xFFFFAB40),
+];
+
+Color _danmakuColorFor(DanmakuColorMode mode, Color base, String id) {
+  if (mode != DanmakuColorMode.colorful) return base;
+  var hash = 0;
+  for (final char in id.codeUnits) {
+    hash = (hash * 31 + char) & 0x7FFFFFFF;
+  }
+  return _colorfulPalette[hash % _colorfulPalette.length];
+}
+
 TextStyle danmakuTextStyle({
   required double fontSize,
   required DanmakuStyle style,
   bool stroke = false,
+  Color? color,
 }) {
   final weight = style.bold ? FontWeight.w700 : FontWeight.w500;
   final alpha = style.opacity;
@@ -94,7 +114,7 @@ TextStyle danmakuTextStyle({
     fontSize: fontSize,
     height: 1.2,
     fontWeight: weight,
-    color: style.color.withValues(alpha: alpha),
+    color: (color ?? style.color).withValues(alpha: alpha),
     shadows: style.hasShadow
         ? [
             Shadow(
@@ -345,6 +365,14 @@ class _DanmakuLayerState extends State<_DanmakuLayer>
     }
     final style = widget.style;
     final fill = danmakuTextStyle(fontSize: widget.fontSize, style: style);
+    final colorful = style.colorMode == DanmakuColorMode.colorful;
+    final gradient = style.colorMode == DanmakuColorMode.gradient
+        ? LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [style.color, Colors.cyanAccent],
+          )
+        : null;
     final layout = (
       controller,
       controller.dataRevision,
@@ -408,9 +436,20 @@ class _DanmakuLayerState extends State<_DanmakuLayer>
                 child: RepaintBoundary(
                   child: _DanmakuText(
                     text: flight.text,
-                    style: fill,
+                    style: colorful
+                        ? danmakuTextStyle(
+                            fontSize: widget.fontSize,
+                            style: style,
+                            color: _danmakuColorFor(
+                              style.colorMode,
+                              style.color,
+                              flight.item.id,
+                            ),
+                          )
+                        : fill,
                     outline: outline,
                     scaler: widget.scaler,
+                    gradient: gradient,
                   ),
                 ),
               ),
@@ -527,15 +566,17 @@ class _DanmakuText extends StatelessWidget {
     required this.style,
     required this.outline,
     required this.scaler,
+    this.gradient,
   });
   final String text;
   final TextStyle style;
   final TextStyle? outline;
   final TextScaler scaler;
+  final LinearGradient? gradient;
 
   @override
   Widget build(BuildContext context) {
-    final label = Text(
+    Widget label = Text(
       text,
       style: style,
       textScaler: scaler,
@@ -543,6 +584,14 @@ class _DanmakuText extends StatelessWidget {
       maxLines: 1,
       softWrap: false,
     );
+    final gradient = this.gradient;
+    if (gradient != null) {
+      label = ShaderMask(
+        shaderCallback: (bounds) => gradient.createShader(bounds),
+        blendMode: BlendMode.srcIn,
+        child: label,
+      );
+    }
     final outline = this.outline;
     if (outline == null) return label;
     return Stack(
