@@ -28,6 +28,7 @@ class EpisodeGrid extends StatefulWidget {
     this.downloading = const {},
     this.minCellWidth,
     this.inset = 16,
+    this.initialFocus = false,
   });
   final List<Episode> episodes;
   final int current;
@@ -41,6 +42,7 @@ class EpisodeGrid extends StatefulWidget {
   final Set<int> downloading;
   final double? minCellWidth;
   final double inset;
+  final bool initialFocus;
 
   @override
   State<EpisodeGrid> createState() => _EpisodeGridState();
@@ -49,6 +51,7 @@ class EpisodeGrid extends StatefulWidget {
 class _EpisodeGridState extends State<EpisodeGrid> {
   final _scroll = ScrollController();
   final _headerKey = GlobalKey();
+  final _currentFocus = FocusNode(debugLabel: 'episode-current');
   bool? _dragAdds;
   int _dragAnchor = 0;
   Set<int> _dragBase = const {};
@@ -58,6 +61,7 @@ class _EpisodeGridState extends State<EpisodeGrid> {
   double _gridHeight = 0;
   int _columns = 5;
   int _revealed = -1;
+  bool _initialFocused = false;
 
   List<Episode> get _episodes => widget.episodes;
   Set<int> get _selected => widget.selected;
@@ -74,6 +78,7 @@ class _EpisodeGridState extends State<EpisodeGrid> {
   void dispose() {
     _autoScroll?.cancel();
     _scroll.dispose();
+    _currentFocus.dispose();
     super.dispose();
   }
 
@@ -231,6 +236,15 @@ class _EpisodeGridState extends State<EpisodeGrid> {
           (_) => _reveal(animate: animate),
         );
       }
+      if (widget.initialFocus && !widget.touch && !_initialFocused) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || _initialFocused) return;
+          if (_currentFocus.context != null) {
+            _initialFocused = true;
+            _currentFocus.requestFocus();
+          }
+        });
+      }
       final selecting = widget.selecting;
       final rows = SliverFixedExtentList(
         itemExtent: _rowExtent,
@@ -260,6 +274,11 @@ class _EpisodeGridState extends State<EpisodeGrid> {
                                 ? Icons.check_rounded
                                 : widget.downloading.contains(index)
                                 ? Icons.arrow_downward_rounded
+                                : null,
+                            focusNode: widget.initialFocus &&
+                                    !widget.touch &&
+                                    index == widget.current
+                                ? _currentFocus
                                 : null,
                             onPressed: _locked(index)
                                 ? null
@@ -331,6 +350,7 @@ class _EpisodeCell extends StatelessWidget {
     required this.selected,
     required this.onPressed,
     this.marker,
+    this.focusNode,
   });
   final Episode episode;
   final bool current;
@@ -338,6 +358,7 @@ class _EpisodeCell extends StatelessWidget {
   final bool? selected;
   final VoidCallback? onPressed;
   final IconData? marker;
+  final FocusNode? focusNode;
 
   @override
   Widget build(BuildContext context) {
@@ -389,6 +410,7 @@ class _EpisodeCell extends StatelessWidget {
           shape: RoundedRectangleBorder(borderRadius: radius),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
+            focusNode: focusNode,
             onTap: onPressed,
             child: Stack(
               fit: StackFit.expand,

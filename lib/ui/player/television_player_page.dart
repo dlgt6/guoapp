@@ -11,6 +11,7 @@ import '../theme/app_theme.dart';
 import '../theme/motion.dart';
 import '../widgets/motion/motion_widgets.dart';
 import 'danmaku_overlay.dart';
+import 'episode_grid.dart';
 import 'playback_hud.dart';
 import 'fade_presence.dart';
 import 'playback_handle.dart';
@@ -49,6 +50,7 @@ class _TelevisionPlayerPageState extends State<TelevisionPlayerPage>
   final _previous = FocusNode();
   final _play = FocusNode();
   final _next = FocusNode();
+  final _episodes = FocusNode();
   final _danmaku = FocusNode();
   final _speed = FocusNode();
   final _quality = FocusNode();
@@ -63,6 +65,7 @@ class _TelevisionPlayerPageState extends State<TelevisionPlayerPage>
   Timer? _seekDisplay;
   bool _visible = true;
   bool _failed = false;
+  bool _episodesOpen = false;
   _Menu? _menu;
   Duration? _seekTarget;
   Duration _seekFrom = Duration.zero;
@@ -97,6 +100,7 @@ class _TelevisionPlayerPageState extends State<TelevisionPlayerPage>
       _previous,
       _play,
       _next,
+      _episodes,
       _danmaku,
       _speed,
       _quality,
@@ -149,6 +153,7 @@ class _TelevisionPlayerPageState extends State<TelevisionPlayerPage>
       if (!mounted ||
           !_visible ||
           _menu != null ||
+          _episodesOpen ||
           !_session.player.state.playing ||
           _session.error != null) {
         return;
@@ -235,10 +240,28 @@ class _TelevisionPlayerPageState extends State<TelevisionPlayerPage>
     }
   }
 
+  void _openEpisodes() {
+    setState(() => _episodesOpen = true);
+    unawaited(
+      showDialog<void>(
+        context: context,
+        builder: (context) => _TelevisionEpisodesDialog(session: _session),
+      ).then((_) {
+        if (mounted) {
+          setState(() => _episodesOpen = false);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _episodes.requestFocus();
+          });
+        }
+      }),
+    );
+  }
+
   List<FocusNode> get _row => [
     _previous,
     _play,
     _next,
+    _episodes,
     if (_session.danmakuSupported) _danmaku,
     _speed,
     _quality,
@@ -251,6 +274,7 @@ class _TelevisionPlayerPageState extends State<TelevisionPlayerPage>
       node == _speed && _session.ready ||
       node == _quality && _session.ready && !_session.local ||
       node == _play ||
+      node == _episodes ||
       node == _fit ||
       node == _danmaku;
 
@@ -320,6 +344,7 @@ class _TelevisionPlayerPageState extends State<TelevisionPlayerPage>
   }
 
   KeyEventResult _key(FocusNode _, KeyEvent event) {
+    if (_episodesOpen) return KeyEventResult.handled;
     if (event is KeyUpEvent || _session.error != null) {
       return KeyEventResult.ignored;
     }
@@ -572,6 +597,12 @@ class _TelevisionPlayerPageState extends State<TelevisionPlayerPage>
                 strong: true,
               ),
               _round(_next, Icons.skip_next_rounded, '下一集', () => _episode(1)),
+              _round(
+                _episodes,
+                Icons.playlist_play_rounded,
+                '选集',
+                _openEpisodes,
+              ),
               const Spacer(),
               if (_session.danmakuSupported)
                 _pill(
@@ -818,7 +849,11 @@ class _TelevisionPlayerPageState extends State<TelevisionPlayerPage>
               ? Semantics(
                   label: '播放进度',
                   value: formatClock(position),
-                  child: Focus(focusNode: _bar, child: track),
+                  child: Focus(
+                    focusNode: _bar,
+                    canRequestFocus: !_episodesOpen,
+                    child: track,
+                  ),
                 )
               : track,
         ),
@@ -842,6 +877,7 @@ class _TelevisionPlayerPageState extends State<TelevisionPlayerPage>
     required Widget Function(bool focused, bool enabled) builder,
   }) {
     final enabled = _enabled(node);
+    final focusable = enabled && !_episodesOpen;
     return Semantics(
       label: label,
       button: true,
@@ -850,15 +886,15 @@ class _TelevisionPlayerPageState extends State<TelevisionPlayerPage>
       child: ListenableBuilder(
         listenable: node,
         builder: (context, _) {
-          final focused = enabled && node.hasPrimaryFocus;
+          final focused = focusable && node.hasPrimaryFocus;
           return AnimatedScale(
             scale: focused ? 1.08 : 1,
             duration: Motion.of(context, const Duration(milliseconds: 120)),
             curve: Motion.enter,
             child: InkWell(
               focusNode: node,
-              canRequestFocus: enabled,
-              onTap: enabled ? onPressed : null,
+              canRequestFocus: focusable,
+              onTap: focusable ? onPressed : null,
               customBorder: shape,
               focusColor: Colors.transparent,
               hoverColor: Colors.transparent,
@@ -1076,6 +1112,125 @@ class _TelevisionPlayerPageState extends State<TelevisionPlayerPage>
       ),
     ),
   );
+}
+
+class _TelevisionEpisodesDialog extends StatefulWidget {
+  const _TelevisionEpisodesDialog({required this.session});
+
+  final PlaybackSession session;
+
+  @override
+  State<_TelevisionEpisodesDialog> createState() =>
+      _TelevisionEpisodesDialogState();
+}
+
+class _TelevisionEpisodesDialogState extends State<_TelevisionEpisodesDialog> {
+  final _close = FocusNode(debugLabel: 'tv-episodes-close');
+
+  @override
+  void dispose() {
+    _close.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final session = widget.session;
+    return FocusTraversalGroup(
+      child: Focus(
+        canRequestFocus: false,
+        onKeyEvent: (node, event) {
+          if (event is! KeyDownEvent) return KeyEventResult.ignored;
+          if (event.logicalKey == LogicalKeyboardKey.escape) {
+            Navigator.of(context).pop();
+            return KeyEventResult.handled;
+          }
+          return KeyEventResult.ignored;
+        },
+        child: Dialog(
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 120,
+            vertical: 80,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
+            child: SizedBox(
+              width: 760,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      const Text(
+                        '选集',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        '共 ${session.detail.episodes.length} 集',
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                      const Spacer(),
+                      ListenableBuilder(
+                        listenable: _close,
+                        builder: (context, _) {
+                          final focused = _close.hasPrimaryFocus;
+                          return AnimatedScale(
+                            scale: focused ? 1.08 : 1,
+                            duration: Motion.of(
+                              context,
+                              const Duration(milliseconds: 120),
+                            ),
+                            child: IconButton(
+                              focusNode: _close,
+                              onPressed: () => Navigator.of(context).pop(),
+                              icon: const Icon(Icons.close_rounded),
+                              tooltip: '关闭',
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Flexible(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: MediaQuery.of(context).size.height * 0.66,
+                      ),
+                      child: EpisodeGrid(
+                        episodes: session.detail.episodes,
+                        current: session.index,
+                        selecting: false,
+                        selected: const {},
+                        touch: false,
+                        initialFocus: true,
+                        onSelectionChanged: () {},
+                        onPick: (index) {
+                          Navigator.of(context).pop();
+                          if (index != session.index) {
+                            unawaited(session.play(index));
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _Shade extends StatelessWidget {
