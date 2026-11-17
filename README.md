@@ -28,6 +28,8 @@ Flutter 多端独立影视应用，手机、平板、电脑和电视分别适配
 
 https://github.com/guoapp-modules
 
+native/core/module_index.go 里写死了索引与模块文件的地址：
+
 ### 界面与外观
 
 - **导航**：发现 / 追剧 / 我的。手机用底栏，平板和电脑用侧栏（可收起），电视用顶部 Tab；宽屏的子页面在侧栏右侧打开。
