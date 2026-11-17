@@ -131,6 +131,10 @@ class SearchPageState extends State<SearchPage> {
 
   @override
   Widget build(BuildContext context) {
+    final television = AppScope.of(context).television;
+    if (television && widget.store.televisionKeyboard) {
+      return _televisionKeyboard(context);
+    }
     final field = SearchField(
       hint: '在 ${widget.source.name} 中搜索',
       controller: _controller,
@@ -143,7 +147,7 @@ class SearchPageState extends State<SearchPage> {
           ? (query) => _repository.suggestions(widget.source.id, query)
           : null,
     );
-    if (AppScope.of(context).television) {
+    if (television) {
       return Scaffold(
         body: Column(
           children: [
@@ -170,6 +174,178 @@ class SearchPageState extends State<SearchPage> {
         top: false,
         bottom: false,
         child: FadeSwitcher(child: _body(context)),
+      ),
+    );
+  }
+
+  Widget _televisionKeyboard(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final query = _controller.text;
+    return Scaffold(
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              televisionInset,
+              27,
+              televisionInset,
+              8,
+            ),
+            child: Container(
+              height: 56,
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              decoration: BoxDecoration(
+                color: colors.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(28),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.search_rounded, color: colors.primary, size: 24),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      query.isEmpty ? '输入剧名拼音首字母，例如 BDZC' : query,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        color: query.isEmpty ? colors.onSurfaceVariant : null,
+                        letterSpacing: query.isEmpty ? null : 2,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                televisionInset,
+                0,
+                televisionInset,
+                27,
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                spacing: 24,
+                children: [
+                  Flexible(
+                    flex: 4,
+                    fit: FlexFit.tight,
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxHeight: 640),
+                        child: _searchKeys(),
+                      ),
+                    ),
+                  ),
+                  Flexible(
+                    flex: 5,
+                    fit: FlexFit.tight,
+                    child: FadeSwitcher(child: _body(context)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _searchKeys() {
+    const rows = ['ABCDEF', 'GHIJKL', 'MNOPQR', 'STUVWX', 'YZ1234', '567890'];
+    void edit(String text) {
+      _controller.text = text;
+      _changed(text);
+    }
+
+    return Column(
+      spacing: 8,
+      children: [
+        for (final (row, keys) in rows.indexed)
+          Expanded(
+            child: Row(
+              spacing: 8,
+              children: [
+                for (final (column, key) in keys.split('').indexed)
+                  Expanded(
+                    child: _searchKey(
+                      autofocus: row == 0 && column == 0,
+                      onPressed: () => edit(_controller.text + key),
+                      child: Text(
+                        key,
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        Expanded(
+          child: Row(
+            spacing: 8,
+            children: [
+              Expanded(
+                child: _searchKey(
+                  onPressed: () {
+                    final text = _controller.text;
+                    if (text.isNotEmpty) edit(text.substring(0, text.length - 1));
+                  },
+                  child: const Icon(Icons.backspace_outlined, size: 24),
+                ),
+              ),
+              Expanded(
+                child: _searchKey(
+                  onPressed: () => edit(''),
+                  child: const Text('清空', style: TextStyle(fontSize: 20)),
+                ),
+              ),
+              Expanded(
+                child: _searchKey(
+                  filled: true,
+                  onPressed: () => _submit(_controller.text),
+                  child: const Text('搜索', style: TextStyle(fontSize: 20)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _searchKey({
+    required VoidCallback onPressed,
+    required Widget child,
+    bool autofocus = false,
+    bool filled = false,
+  }) {
+    final style = FilledButton.styleFrom(
+      padding: EdgeInsets.zero,
+      minimumSize: Size.zero,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    );
+    return FocusRing(
+      radius: 10,
+      child: SizedBox.expand(
+        child: filled
+            ? FilledButton(
+                autofocus: autofocus,
+                style: style,
+                onPressed: onPressed,
+                child: child,
+              )
+            : FilledButton.tonal(
+                autofocus: autofocus,
+                style: style,
+                onPressed: onPressed,
+                child: child,
+              ),
       ),
     );
   }
