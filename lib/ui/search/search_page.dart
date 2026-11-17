@@ -31,10 +31,10 @@ class SearchPage extends StatefulWidget {
   final String query;
 
   @override
-  State<SearchPage> createState() => _SearchPageState();
+  State<SearchPage> createState() => SearchPageState();
 }
 
-class _SearchPageState extends State<SearchPage> {
+class SearchPageState extends State<SearchPage> {
   late final _controller = TextEditingController(text: widget.query);
   final _focus = FocusNode();
   late AppRepository _repository;
@@ -66,6 +66,20 @@ class _SearchPageState extends State<SearchPage> {
     _controller.dispose();
     _focus.dispose();
     super.dispose();
+  }
+
+  void reset() {
+    _debounce?.cancel();
+    _suggestion++;
+    _controller.clear();
+    _results?.dispose();
+    _shownSuggestions.clear();
+    if (!mounted) return;
+    setState(() {
+      _results = null;
+      _submitted = '';
+      _suggestions = const [];
+    });
   }
 
   void _forget(String query) {
