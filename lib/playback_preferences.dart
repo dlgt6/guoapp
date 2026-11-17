@@ -13,6 +13,8 @@ const danmakuColors = [
   0xFF8CF08C,
 ];
 
+enum DanmakuColorMode { normal, colorful, gradient }
+
 enum TelevisionDecoder { optimized, hardware, software }
 
 enum DanmakuCoverage {
@@ -85,6 +87,7 @@ class PlaybackPreferences {
     this.danmaku = true,
     this.danmakuScale = 1,
     this.danmakuColor = 0xFFFFFFFF,
+    this.danmakuColorMode = DanmakuColorMode.normal,
     this.danmakuOpacity = 1,
     this.danmakuBold = true,
     this.danmakuStroke = 0,
@@ -114,6 +117,7 @@ class PlaybackPreferences {
   final bool danmaku;
   final double danmakuScale;
   final int danmakuColor;
+  final DanmakuColorMode danmakuColorMode;
   final double danmakuOpacity;
   final bool danmakuBold;
   final double danmakuStroke;
@@ -149,6 +153,7 @@ class PlaybackPreferences {
     bool? danmaku,
     double? danmakuScale,
     int? danmakuColor,
+    DanmakuColorMode? danmakuColorMode,
     double? danmakuOpacity,
     bool? danmakuBold,
     double? danmakuStroke,
@@ -178,6 +183,7 @@ class PlaybackPreferences {
     danmaku: danmaku ?? this.danmaku,
     danmakuScale: danmakuScale ?? this.danmakuScale,
     danmakuColor: danmakuColor ?? this.danmakuColor,
+    danmakuColorMode: danmakuColorMode ?? this.danmakuColorMode,
     danmakuOpacity: danmakuOpacity ?? this.danmakuOpacity,
     danmakuBold: danmakuBold ?? this.danmakuBold,
     danmakuStroke: danmakuStroke ?? this.danmakuStroke,
@@ -209,6 +215,7 @@ class PlaybackPreferences {
     'danmaku': danmaku,
     'danmakuScale': danmakuScale,
     'danmakuColor': danmakuColor,
+    'danmakuColorMode': danmakuColorMode.name,
     'danmakuOpacity': danmakuOpacity,
     'danmakuBold': danmakuBold,
     'danmakuStroke': danmakuStroke,
@@ -242,6 +249,9 @@ class PlaybackPreferences {
     final preload = value['preload'] as bool? ?? true;
     final danmakuScale = (value['danmakuScale'] as num? ?? 1).toDouble();
     final danmakuColor = value['danmakuColor'] as int? ?? 0xFFFFFFFF;
+    final danmakuColorMode =
+        DanmakuColorMode.values.asNameMap()[value['danmakuColorMode']] ??
+        DanmakuColorMode.normal;
     if (!playbackSpeeds.contains(speed) || quality < 0 || quality > 4320) {
       throw const FormatException('播放偏好无效');
     }
@@ -255,6 +265,7 @@ class PlaybackPreferences {
       danmakuColor: danmakuColors.contains(danmakuColor)
           ? danmakuColor
           : 0xFFFFFFFF,
+      danmakuColorMode: danmakuColorMode,
       danmakuOpacity: (value['danmakuOpacity'] as num? ?? 1).toDouble().clamp(
         0.1,
         1.0,

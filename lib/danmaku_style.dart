@@ -6,6 +6,7 @@ class DanmakuStyle {
   const DanmakuStyle({
     this.scale = 1,
     this.color = const Color(0xFFFFFFFF),
+    this.colorMode = DanmakuColorMode.normal,
     this.opacity = 1,
     this.bold = true,
     this.stroke = 0,
@@ -17,6 +18,7 @@ class DanmakuStyle {
   factory DanmakuStyle.of(PlaybackPreferences preferences) => DanmakuStyle(
     scale: preferences.danmakuScale,
     color: Color(preferences.danmakuColor),
+    colorMode: preferences.danmakuColorMode,
     opacity: preferences.danmakuOpacity,
     bold: preferences.danmakuBold,
     stroke: preferences.danmakuStroke,
@@ -27,6 +29,7 @@ class DanmakuStyle {
 
   final double scale;
   final Color color;
+  final DanmakuColorMode colorMode;
   final double opacity;
   final bool bold;
   final double stroke;
@@ -42,6 +45,7 @@ class DanmakuStyle {
       other is DanmakuStyle &&
       other.scale == scale &&
       other.color == color &&
+      other.colorMode == colorMode &&
       other.opacity == opacity &&
       other.bold == bold &&
       other.stroke == stroke &&
@@ -50,6 +54,15 @@ class DanmakuStyle {
       other.speed == speed;
 
   @override
-  int get hashCode =>
-      Object.hash(scale, color, opacity, bold, stroke, shadow, coverage, speed);
+  int get hashCode => Object.hash(
+    scale,
+    color,
+    colorMode,
+    opacity,
+    bold,
+    stroke,
+    shadow,
+    coverage,
+    speed,
+  );
 }

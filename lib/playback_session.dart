@@ -1315,6 +1315,11 @@ class PlaybackSession extends ChangeNotifier {
     _notify();
   }
 
+  Future<void> setDanmakuColorMode(DanmakuColorMode value) async {
+    await _savePreferences(_preferences.copyWith(danmakuColorMode: value));
+    _notify();
+  }
+
   Future<void> setDanmakuOpacity(double value) async {
     final opacity = value.clamp(.1, 1.0);
     await _savePreferences(_preferences.copyWith(danmakuOpacity: opacity));
