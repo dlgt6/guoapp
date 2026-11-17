@@ -17,6 +17,7 @@ import '../theme/motion.dart';
 import '../widgets/contained_slider.dart';
 import '../widgets/follow_button.dart';
 import 'danmaku_overlay.dart';
+import 'playback_hud.dart';
 import 'episode_grid.dart';
 import 'fade_presence.dart';
 import 'mini_player.dart';
@@ -555,6 +556,11 @@ class _PortraitPlayerPageState extends State<PortraitPlayerPage>
               video: session.videoSize,
               fit: session.videoFit,
               style: session.danmakuStyle,
+            ),
+            PlaybackHud(
+              title:
+                  '${session.detail.drama.title} · 第 ${session.episode.number} 集',
+              player: session.player,
             ),
             SwipeControls(
               key: const ValueKey('gestures'),

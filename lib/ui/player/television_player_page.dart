@@ -11,6 +11,7 @@ import '../theme/app_theme.dart';
 import '../theme/motion.dart';
 import '../widgets/motion/motion_widgets.dart';
 import 'danmaku_overlay.dart';
+import 'playback_hud.dart';
 import 'fade_presence.dart';
 import 'playback_handle.dart';
 import 'player_status.dart';
@@ -447,6 +448,12 @@ class _TelevisionPlayerPageState extends State<TelevisionPlayerPage>
                       video: _session.videoSize,
                       fit: _session.videoFit,
                       style: _session.danmakuStyle,
+                    ),
+                    PlaybackHud(
+                      title:
+                          '${_session.detail.drama.title} · 第 ${_session.episode.number} 集',
+                      player: _session.player,
+                      television: true,
                     ),
                     FadePresence(
                       duration: Motion.medium,

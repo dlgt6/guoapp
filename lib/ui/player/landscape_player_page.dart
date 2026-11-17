@@ -18,6 +18,7 @@ import '../widgets/contained_slider.dart';
 import '../widgets/motion/motion_widgets.dart';
 import 'cast_page.dart';
 import 'danmaku_overlay.dart';
+import 'playback_hud.dart';
 import '../widgets/follow_button.dart';
 import 'episode_grid.dart';
 import 'mini_player.dart';
@@ -493,6 +494,11 @@ class _LandscapePlayerPageState extends State<LandscapePlayerPage>
           video: session.videoSize,
           fit: session.videoFit,
           style: session.danmakuStyle,
+        ),
+        PlaybackHud(
+          title:
+              '${session.detail.drama.title} · 第 ${session.episode.number} 集',
+          player: session.player,
         ),
         SwipeControls(
           session: session,

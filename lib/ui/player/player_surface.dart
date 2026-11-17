@@ -15,6 +15,7 @@ import '../widgets/contained_slider.dart';
 import '../widgets/motion/motion_widgets.dart';
 import 'cast_page.dart';
 import 'danmaku_overlay.dart';
+import 'playback_hud.dart';
 import 'fade_presence.dart';
 import 'playback_handle.dart';
 import 'playback_sheets.dart';
@@ -362,6 +363,11 @@ class _PlayerSurfaceState extends State<PlayerSurface> {
               video: _session.videoSize,
               fit: _session.videoFit,
               style: _session.danmakuStyle,
+            ),
+            PlaybackHud(
+              title:
+                  '${_session.detail.drama.title} · 第 ${_session.episode.number} 集',
+              player: _session.player,
             ),
             if (widget.touch)
               SwipeControls(
