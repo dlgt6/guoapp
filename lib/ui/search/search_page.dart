@@ -168,7 +168,10 @@ class SearchPageState extends State<SearchPage> {
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 0,
-        title: Padding(padding: const EdgeInsets.only(right: 16), child: field),
+        title: Padding(
+          padding: const EdgeInsets.only(right: 16),
+          child: field,
+        ),
       ),
       body: SafeArea(
         top: false,
