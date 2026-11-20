@@ -62,6 +62,9 @@ class _EpisodeGridState extends State<EpisodeGrid> {
   int _columns = 5;
   int _revealed = -1;
   bool _initialFocused = false;
+  bool _focusPending = false;
+  int _focusAttempts = 0;
+  static const _maxFocusAttempts = 60;
 
   List<Episode> get _episodes => widget.episodes;
   Set<int> get _selected => widget.selected;
@@ -80,6 +83,27 @@ class _EpisodeGridState extends State<EpisodeGrid> {
     _scroll.dispose();
     _currentFocus.dispose();
     super.dispose();
+  }
+
+  /// The grid is lazy: when it opens on a late episode, the current cell is
+  /// not built yet when the first post-frame callback runs (the reveal jump
+  /// only schedules a new frame). Retry until the node is actually attached
+  /// instead of dropping the focus request forever.
+  void _scheduleInitialFocus() {
+    if (!mounted || _initialFocused || _focusPending) return;
+    if (!widget.initialFocus || widget.touch) return;
+    _focusPending = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _focusPending = false;
+      if (!mounted || _initialFocused) return;
+      if (!widget.initialFocus || widget.touch) return;
+      if (_currentFocus.context != null) {
+        _initialFocused = true;
+        _currentFocus.requestFocus();
+        return;
+      }
+      if (_focusAttempts++ < _maxFocusAttempts) _scheduleInitialFocus();
+    });
   }
 
   double get _top => _listTop + (_headerKey.currentContext?.size?.height ?? 0);
@@ -237,13 +261,7 @@ class _EpisodeGridState extends State<EpisodeGrid> {
         );
       }
       if (widget.initialFocus && !widget.touch && !_initialFocused) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted || _initialFocused) return;
-          if (_currentFocus.context != null) {
-            _initialFocused = true;
-            _currentFocus.requestFocus();
-          }
-        });
+        _scheduleInitialFocus();
       }
       final selecting = widget.selecting;
       final rows = SliverFixedExtentList(
