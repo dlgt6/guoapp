@@ -168,10 +168,7 @@ class SearchPageState extends State<SearchPage> {
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 0,
-        title: Padding(
-          padding: const EdgeInsets.only(right: 16),
-          child: field,
-        ),
+        title: Padding(padding: const EdgeInsets.only(right: 16), child: field),
       ),
       body: SafeArea(
         top: false,
@@ -297,7 +294,8 @@ class SearchPageState extends State<SearchPage> {
                 child: _searchKey(
                   onPressed: () {
                     final text = _controller.text;
-                    if (text.isNotEmpty) edit(text.substring(0, text.length - 1));
+                    if (text.isNotEmpty)
+                      edit(text.substring(0, text.length - 1));
                   },
                   child: const Icon(Icons.backspace_outlined, size: 24),
                 ),

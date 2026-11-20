@@ -23,10 +23,9 @@ void main() {
   });
 
   test('legacy danmaku coverage names map to the new steps', () {
-    DanmakuCoverage coverage(String name) => PlaybackPreferences.fromJson({
-          'speed': 1,
-          'danmakuCoverage': name,
-        }).danmakuCoverage;
+    DanmakuCoverage coverage(String name) =>
+        PlaybackPreferences.fromJson({'speed': 1, 'danmakuCoverage': name})
+            .danmakuCoverage;
     expect(coverage('quarter'), DanmakuCoverage.p25);
     expect(coverage('half'), DanmakuCoverage.p50);
     expect(coverage('full'), DanmakuCoverage.p100);

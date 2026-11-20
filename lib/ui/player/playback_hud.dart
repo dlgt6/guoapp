@@ -63,13 +63,10 @@ class _PlaybackHudState extends State<PlaybackHud> {
   Widget build(BuildContext context) {
     final position = widget.player.state.position;
     final duration = widget.player.state.duration;
-    final time = MaterialLocalizations.of(context).formatTimeOfDay(
-      TimeOfDay.fromDateTime(DateTime.now()),
-    );
+    final time = MaterialLocalizations.of(context)
+        .formatTimeOfDay(TimeOfDay.fromDateTime(DateTime.now()));
     final progress = '${_formatClock(position)} / ${_formatClock(duration)}';
-    final speed = _downloadKbps > 1
-        ? '~${_downloadKbps.round()} KB/s'
-        : '--';
+    final speed = _downloadKbps > 1 ? '~${_downloadKbps.round()} KB/s' : '--';
     final fontSize = (widget.television ? 14 : 11) * 1.55;
     final style = TextStyle(
       fontSize: fontSize,
@@ -95,7 +92,11 @@ class _PlaybackHudState extends State<PlaybackHud> {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          Positioned(top: inset, right: inset, child: Text(time, style: style)),
+          Positioned(
+            top: inset,
+            right: inset,
+            child: Text(time, style: style),
+          ),
           Positioned(
             bottom: inset,
             left: inset,

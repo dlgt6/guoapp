@@ -267,7 +267,6 @@ class _EpisodeGridState extends State<EpisodeGrid> {
       final rows = SliverFixedExtentList(
         itemExtent: _rowExtent,
         delegate: SliverChildBuilderDelegate(
-
           (context, row) => Padding(
             padding: const EdgeInsets.only(bottom: _cellGap),
             child: Row(
@@ -293,7 +292,8 @@ class _EpisodeGridState extends State<EpisodeGrid> {
                                 : widget.downloading.contains(index)
                                 ? Icons.arrow_downward_rounded
                                 : null,
-                            focusNode: widget.initialFocus &&
+                            focusNode:
+                                widget.initialFocus &&
                                     !widget.touch &&
                                     index == widget.current
                                 ? _currentFocus
