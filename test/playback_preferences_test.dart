@@ -23,8 +23,7 @@ void main() {
   });
 
   test('legacy danmaku coverage names map to the new steps', () {
-    DanmakuCoverage coverage(String name) =>
-        PlaybackPreferences.fromJson({
+    DanmakuCoverage coverage(String name) => PlaybackPreferences.fromJson({
           'speed': 1,
           'danmakuCoverage': name,
         }).danmakuCoverage;
