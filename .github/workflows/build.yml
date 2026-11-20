@@ -87,13 +87,11 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
-      - &checkout-hongguo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           repository: guoapp-modules/hongguo
           path: bundled-modules/hongguo
-      - &setup-python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - uses: actions/setup-java@v4
@@ -159,108 +157,8 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-  windows:
-    needs: prepare
-    runs-on: windows-latest
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@v4
-      - *checkout-hongguo
-      - *setup-go
-      - *setup-python
-      - *setup-flutter
-      - name: Set up MinGW-w64
-        shell: pwsh
-        run: |
-          choco install mingw --no-progress -y
-          $exe = Get-ChildItem -Path 'C:\ProgramData\mingw64', 'C:\ProgramData\chocolatey\lib\mingw' `
-                   -Recurse -Include 'x86_64-w64-mingw32-gcc.exe', 'gcc.exe' -ErrorAction SilentlyContinue |
-                 Select-Object -First 1 -ExpandProperty FullName
-          if (-not $exe) { $exe = (Get-Command x86_64-w64-mingw32-gcc -ErrorAction SilentlyContinue).Source }
-          if (-not $exe) { throw 'MinGW-w64 安装失败，找不到 gcc' }
-          Split-Path $exe | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          & $exe --version | Select-Object -First 1
-      - name: Set up Inno Setup
-        shell: pwsh
-        run: choco upgrade innosetup --no-progress -y
-      - run: python scripts/build_windows.py
-      - uses: actions/upload-artifact@v4
-        with:
-          name: windows
-          path: dist/windows/*
-          if-no-files-found: error
-          retention-days: 14
-
-  ios:
-    needs: prepare
-    runs-on: macos-latest
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@v4
-      - *checkout-hongguo
-      - *setup-python
-      - *setup-go
-      - *setup-flutter
-      - name: Check Xcode and CocoaPods
-        shell: bash
-        run: |
-          set -euo pipefail
-          xcode-select -p
-          xcodebuild -version
-          xcrun --sdk iphoneos --show-sdk-path
-          xcrun --sdk iphoneos --find clang
-          if ! command -v pod >/dev/null 2>&1; then
-            brew install cocoapods
-          fi
-          pod --version
-          go version
-          flutter --version
-          flutter precache --ios
-      - name: Build unsigned iOS packages
-        run: python scripts/build_ios.py
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ios-unsigned
-          path: dist/ios/*
-          if-no-files-found: error
-          retention-days: 14
-
-  macos:
-    needs: prepare
-    runs-on: macos-latest
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@v4
-      - *checkout-hongguo
-      - *setup-python
-      - *setup-go
-      - *setup-flutter
-      - name: Check Xcode and CocoaPods
-        shell: bash
-        run: |
-          set -euo pipefail
-          xcode-select -p
-          xcodebuild -version
-          xcrun --sdk macosx --show-sdk-path
-          if ! command -v pod >/dev/null 2>&1; then
-            brew install cocoapods
-          fi
-          pod --version
-          python -m pip install dmgbuild Pillow
-          go version
-          flutter --version
-          flutter precache --macos
-      - name: Build macOS packages
-        run: python scripts/build_macos.py
-      - uses: actions/upload-artifact@v4
-        with:
-          name: macos
-          path: dist/macos/*
-          if-no-files-found: error
-          retention-days: 14
-
   release:
-    needs: [checks, prepare, android, windows, ios, macos]
+    needs: [checks, prepare, android]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -287,16 +185,6 @@ jobs:
           - *-armeabi-v7a.apk：适用于较老的安卓设备，电视推荐使用此版本
           - *-x86_64.apk：适用于模拟器
 
-          iOS：
-          - *-ios-unsigned.ipa：未签名 IPA，可用相关工具安装
-
-          Windows：
-          - *-windows-x64-setup.exe：安装包，默认安装到当前用户，无需管理员权限；安装时可改为所有用户
-          - *-windows-x64.zip：便携版，解压后运行 guoapp.exe；设置、记录、海报缓存和默认下载都保存在程序旁的 userdata 目录，升级时把旧版的 userdata 目录复制过来即可
-
-          macOS：
-          - *-macos-universal.dmg：适用于 macOS 12 及以上的 Apple 芯片和 Intel 电脑，打开后拖入 Applications；未经公证，首次打开前在终端执行 xattr -dr com.apple.quarantine /Applications/小果影视.app
-
           Android 签名证书 SHA-256：${SIGNING_CERT_SHA256}
           EOF
           changes="$(awk -v heading="## ${VERSION}" '
@@ -310,7 +198,7 @@ jobs:
             { printf '更新内容：\n\n%s\n\n' "$changes"; cat notes.md; } > notes.tmp
             mv notes.tmp notes.md
           fi
-          gh release create "$TAG" release/* --target "$GITHUB_SHA" --title "小果影视 ${VERSION}" --notes-file notes.md
+          gh release create "$TAG" release/* --target "$GITHUB_SHA" --title "红果影视 ${VERSION}" --notes-file notes.md
       - name: 推送到 Telegram 频道
         continue-on-error: true
         env:
@@ -326,7 +214,7 @@ jobs:
           fi
           changes="$(cat changes.md)"
           url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/$TAG"
-          text="小果影视 ${VERSION} 已发布"
+          text="红果影视 ${VERSION} 已发布"
           if [ -n "$changes" ]; then
             text="$(printf '%s\n\n更新内容：\n\n%s' "$text" "${changes:0:3500}")"
           fi
