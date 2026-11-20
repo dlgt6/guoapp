@@ -12,13 +12,14 @@ Future<String?> showLetterKeyboard(
   BuildContext context, {
   required String text,
   TitleMatches? matches,
-}) => showDialog<String>(
-  context: context,
-  builder: (dialogContext) => Dialog.fullscreen(
-    backgroundColor: Theme.of(dialogContext).colorScheme.surface,
-    child: _LetterKeyboard(text: text, matches: matches),
-  ),
-);
+}) =>
+    showDialog<String>(
+      context: context,
+      builder: (dialogContext) => Dialog.fullscreen(
+        backgroundColor: Theme.of(dialogContext).colorScheme.surface,
+        child: _LetterKeyboard(text: text, matches: matches),
+      ),
+    );
 
 const _rows = ['ABCDEF', 'GHIJKL', 'MNOPQR', 'STUVWX', 'YZ1234', '567890'];
 
