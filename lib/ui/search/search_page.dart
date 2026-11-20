@@ -294,8 +294,9 @@ class SearchPageState extends State<SearchPage> {
                 child: _searchKey(
                   onPressed: () {
                     final text = _controller.text;
-                    if (text.isNotEmpty)
+                    if (text.isNotEmpty) {
                       edit(text.substring(0, text.length - 1));
+                    }
                   },
                   child: const Icon(Icons.backspace_outlined, size: 24),
                 ),
