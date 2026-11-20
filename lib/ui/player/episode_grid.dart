@@ -267,7 +267,7 @@ class _EpisodeGridState extends State<EpisodeGrid> {
       final rows = SliverFixedExtentList(
         itemExtent: _rowExtent,
         delegate: SliverChildBuilderDelegate(
-          childCount: (_episodes.length / _columns).ceil(),
+
           (context, row) => Padding(
             padding: const EdgeInsets.only(bottom: _cellGap),
             child: Row(

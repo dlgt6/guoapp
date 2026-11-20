@@ -66,8 +66,7 @@ class _PlaybackHudState extends State<PlaybackHud> {
     final time = MaterialLocalizations.of(context).formatTimeOfDay(
       TimeOfDay.fromDateTime(DateTime.now()),
     );
-    final progress =
-        '${_formatClock(position)} / ${_formatClock(duration)}';
+    final progress = '${_formatClock(position)} / ${_formatClock(duration)}';
     final speed = _downloadKbps > 1
         ? '~${_downloadKbps.round()} KB/s'
         : '--';
